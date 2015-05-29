@@ -87,10 +87,12 @@ void WorldSession::HandlePetAction(WorldPacket& recv_data)
                 case COMMAND_STAY:                          // flat=1792  // STAY
                     pet->StopMoving();
                     pet->GetMotionMaster()->Clear(false);
-                    pet->GetMotionMaster()->MoveIdle();
+                    ((Pet*)pet)->SetStayPosition();
+                    pet->GetMotionMaster()->MovePoint(0, ((Pet*)pet)->GetStayPosX(), ((Pet*)pet)->GetStayPosY(), ((Pet*)pet)->GetStayPosZ(), false);
                     charmInfo->SetCommandState(COMMAND_STAY);
                     break;
                 case COMMAND_FOLLOW:                        // spellid=1792  // FOLLOW
+                    ((Pet*)pet)->ClearStayPosition();
                     pet->AttackStop();
                     pet->GetMotionMaster()->MoveFollow(_player, PET_FOLLOW_DIST, PET_FOLLOW_ANGLE);
                     charmInfo->SetCommandState(COMMAND_FOLLOW);
@@ -121,7 +123,7 @@ void WorldSession::HandlePetAction(WorldPacket& recv_data)
                         }
                         else
                         {
-                            pet->GetMotionMaster()->Clear();
+                            pet->GetMotionMaster()->Clear(!((Pet*)pet)->IsStayPosSet());
 
                             if (((Creature*)pet)->AI())
                                 ((Creature*)pet)->AI()->AttackStart(TargetUnit);
@@ -150,6 +152,8 @@ void WorldSession::HandlePetAction(WorldPacket& recv_data)
                     }
                     else                                    // charmed
                         _player->Uncharm();
+
+                    ((Pet*)pet)->ClearStayPosition();
                     break;
                 default:
                     sLog.outError("WORLD: unknown PET flag Action %i and spellid %i.", uint32(flag), spellid);

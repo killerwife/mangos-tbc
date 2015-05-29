@@ -87,8 +87,8 @@ void WorldSession::HandlePetAction(WorldPacket& recv_data)
                 case COMMAND_STAY:                          // flat=1792  // STAY
                     pet->StopMoving();
                     pet->GetMotionMaster()->Clear(false);
+                    pet->GetMotionMaster()->MoveIdle();
                     ((Pet*)pet)->SetStayPosition();
-                    pet->GetMotionMaster()->MovePoint(0, ((Pet*)pet)->GetStayPosX(), ((Pet*)pet)->GetStayPosY(), ((Pet*)pet)->GetStayPosZ(), false);
                     charmInfo->SetCommandState(COMMAND_STAY);
                     break;
                 case COMMAND_FOLLOW:                        // spellid=1792  // FOLLOW

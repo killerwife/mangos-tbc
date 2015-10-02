@@ -3710,7 +3710,10 @@ void Aura::HandleAuraModStun(bool apply, bool Real)
 
         // Creature specific
         if (target->GetTypeId() != TYPEID_PLAYER)
+        {
             target->StopMoving();
+            target->SetFacingTo(target->GetOrientation());
+        }
         else
         {
             ((Player*)target)->m_movementInfo.SetMovementFlags(MOVEFLAG_NONE);

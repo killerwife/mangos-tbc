@@ -6092,6 +6092,9 @@ bool Unit::IsSpellCrit(Unit* pVictim, SpellEntry const* spellProto, SpellSchoolM
     if (spellProto->HasAttribute(SPELL_ATTR_EX2_CANT_CRIT))
         return false;
 
+    if (!IsCharmerOrOwnerPlayerOrPlayerItself() && spellProto->DmgClass != SPELL_DAMAGE_CLASS_RANGED)
+        return false;
+
     float crit_chance = 0.0f;
     switch (spellProto->DmgClass)
     {

@@ -3573,6 +3573,8 @@ void Spell::EffectSummonType(SpellEffectIndex eff_idx)
                     // UNITNAME_SUMMON_TITLE_TOTEM = 121: 23035, battlestands
                     if (prop_id == 121)
                         DoSummonTotem(eff_idx);
+                    else if(prop_id == 64)
+                        DoSummonPossessed(eff_idx, summon_prop->FactionId);
                     else
                         DoSummonWild(eff_idx, summon_prop->FactionId);
                     break;
@@ -5536,6 +5538,14 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                         return;
 
                     unitTarget->CastSpell(unitTarget, 38353, true, nullptr, nullptr, m_caster->GetObjectGuid());
+                    return;
+                }
+                case 38920:
+                {
+                    if (Player* player = dynamic_cast<Player*>(m_caster->GetCharmer()))
+                    {
+                        player->RewardPlayerAndGroupAtEvent(unitTarget->GetEntry(),unitTarget);
+                    }
                     return;
                 }
                 case 39338:                                 // Karazhan - Chess, Medivh CHEAT: Hand of Medivh, Target Horde

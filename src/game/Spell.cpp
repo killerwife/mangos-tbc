@@ -5330,6 +5330,21 @@ SpellCastResult Spell::CheckCast(bool strict)
         }
     }
 
+    switch (m_spellInfo->Id)
+    {
+    case 38915:
+    {
+        if (ObjectGuid target=m_caster->GetTargetGuid())
+        {
+            if (!(target.GetEntry() == 16943 || target.GetEntry() == 20928))  // Mental Interference can be cast only on these two targets
+            {
+                return SPELL_FAILED_BAD_TARGETS;
+            }
+        }
+        break;
+    }
+    }
+
     // all ok
     return SPELL_CAST_OK;
 }
@@ -5354,6 +5369,7 @@ SpellCastResult Spell::CheckPetCast(Unit* target)
             target = m_targets.getUnitTarget();
 
         bool need = false;
+        bool script = false;
         for (int i = 0; i < MAX_EFFECT_INDEX; ++i)
         {
             if (m_spellInfo->EffectImplicitTargetA[i] == TARGET_CHAIN_DAMAGE ||
@@ -5368,9 +5384,16 @@ SpellCastResult Spell::CheckPetCast(Unit* target)
                     return SPELL_FAILED_BAD_IMPLICIT_TARGETS;
                 break;
             }
+            else if (m_spellInfo->EffectImplicitTargetA[i] == TARGET_SCRIPT_COORDINATES)
+            {
+                script = true;
+                continue;
+            }
         }
         if (need)
             m_targets.setUnitTarget(target);
+        else if (script == true)
+            return CheckCast(true);
 
         Unit* _target = m_targets.getUnitTarget();
 

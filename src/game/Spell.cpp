@@ -2593,6 +2593,30 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, UnitList&
     // remove caster from the list if required by attribute
     if (targetMode != TARGET_SELF && targetMode != TARGET_SELF2 && m_spellInfo->HasAttribute(SPELL_ATTR_EX_CANT_TARGET_SELF))
         targetUnitMap.remove(m_caster);
+    switch (m_spellInfo->Id)
+    {
+    case 44877:
+    {
+        for (UnitList::iterator itr = targetUnitMap.begin(), next; itr != targetUnitMap.end(); itr = next)
+        {
+            next = itr;
+            ++next;
+            if ((*itr)->GetObjectGuid().GetHigh() == HIGHGUID_PLAYER) // spell is cast on minipet instead of player
+            {
+                Player* player = (Player*)(*itr);
+                if (Pet* pet = player->GetMiniPet())
+                {
+                    if (pet->GetEntry() == 24916)
+                    {
+                        targetUnitMap.push_back(pet);
+                    }
+                }
+            }
+            targetUnitMap.erase(itr);
+        }
+        break;
+    }
+    }
 
     if (unMaxTargets && targetUnitMap.size() > unMaxTargets)
     {
@@ -6243,6 +6267,12 @@ bool Spell::CheckTarget(Unit* target, SpellEffectIndex eff)
     // A player can cast spells on his pet (or other controlled unit) though in any state
     if (target != m_caster && target->GetCharmerOrOwnerGuid() != m_caster->GetObjectGuid())
     {
+        switch (m_spellInfo->Id) // spells that target minipets, which are inherently non attackable
+        {
+        case 44877:
+            return true;
+        }
+
         // any unattackable target skipped
         if (target->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE))
             return false;

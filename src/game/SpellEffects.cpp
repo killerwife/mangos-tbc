@@ -3573,10 +3573,18 @@ void Spell::EffectSummonType(SpellEffectIndex eff_idx)
                     // UNITNAME_SUMMON_TITLE_TOTEM = 121: 23035, battlestands
                     if (prop_id == 121)
                         DoSummonTotem(eff_idx);
-                    else if(prop_id == 64)
-                        DoSummonPossessed(eff_idx, summon_prop->FactionId);
                     else
-                        DoSummonWild(eff_idx, summon_prop->FactionId);
+                    {
+                        switch (m_spellInfo->Id) // unable to distinguish based on prop_id, therefore spell by spell override
+                        {
+                        case 38544: // summon marmot, gives control of marmot pet
+                            DoSummonPossessed(eff_idx, summon_prop->FactionId); 
+                            break;
+                        default:
+                            DoSummonWild(eff_idx, summon_prop->FactionId);
+                            break;
+                        }
+                    }
                     break;
                 }
                 case UNITNAME_SUMMON_TITLE_PET:

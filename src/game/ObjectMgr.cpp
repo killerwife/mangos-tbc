@@ -6536,6 +6536,9 @@ struct SQLSpellLoader : public SQLStorageLoaderBase<SQLSpellLoader, SQLHashStora
 
 void ObjectMgr::LoadSpellTemplate()
 {
+
+    sLog.WaitBeforeContinueIfNeed();
+
     SQLSpellLoader loader;
     loader.Load(sSpellTemplate);
 
@@ -6744,8 +6747,8 @@ void ObjectMgr::LoadSpellTemplate()
             spellEntry->StartRecoveryTime,
             spellEntry->MaxTargetLevel,
             spellEntry->SpellFamilyName,
+            (uint32)(spellEntry->SpellFamilyFlags.Flags & 0xffffffff),
             (uint32)(spellEntry->SpellFamilyFlags.Flags >> 32),
-            (uint32)(spellEntry->SpellFamilyFlags.Flags),
             spellEntry->MaxAffectedTargets,
             spellEntry->DmgClass,
             spellEntry->PreventionType,

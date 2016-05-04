@@ -101,7 +101,8 @@ bool TargetedMovementGeneratorMedium<T, D>::Update(T& owner, const uint32& time_
     // prevent movement while casting spells with cast time or channel time
     if (owner.IsNonMeleeSpellCasted(false, false, true))
     {
-        D::_clearUnitStateMove(owner);
+        if (!owner.IsStopped())
+            owner.StopMoving();
         return true;
     }
 

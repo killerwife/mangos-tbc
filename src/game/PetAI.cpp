@@ -167,29 +167,33 @@ void PetAI::UpdateAI(const uint32 diff)
             return;
         }
 
-        bool meleeReach = m_creature->CanReachWithMeleeAttack(m_creature->getVictim());
-
-        if (m_creature->IsStopped() || meleeReach)
+        // If creature is not initialized as ranged it will try to melee
+        if (!((Pet*)m_creature)->IsRanged())
         {
-            // required to be stopped cases
-            if (m_creature->IsStopped() && m_creature->IsNonMeleeSpellCasted(false))
-            {
-                if (m_creature->hasUnitState(UNIT_STAT_FOLLOW_MOVE))
-                    m_creature->InterruptNonMeleeSpells(false);
-                else
-                    return;
-            }
-            // not required to be stopped case
-            else if (DoMeleeAttackIfReady())
-            {
-                if (!m_creature->getVictim())
-                    return;
+            bool meleeReach = m_creature->CanReachWithMeleeAttack(m_creature->getVictim());
 
-                // if pet misses its target, it will also be the first in threat list
-                m_creature->getVictim()->AddThreat(m_creature);
+            if (m_creature->IsStopped() || meleeReach)
+            {
+                // required to be stopped cases
+                if (m_creature->IsStopped() && m_creature->IsNonMeleeSpellCasted(false))
+                {
+                    if (m_creature->hasUnitState(UNIT_STAT_FOLLOW_MOVE))
+                        m_creature->InterruptNonMeleeSpells(false);
+                    else
+                        return;
+                }
+                // not required to be stopped case
+                else if (DoMeleeAttackIfReady())
+                {
+                    if (!m_creature->getVictim())
+                        return;
 
-                if (_needToStop())
-                    _stopAttack();
+                    // if pet misses its target, it will also be the first in threat list
+                    m_creature->getVictim()->AddThreat(m_creature);
+
+                    if (_needToStop())
+                        _stopAttack();
+                }
             }
         }
     }
@@ -266,6 +270,13 @@ void PetAI::UpdateAI(const uint32 diff)
             if (inCombat && !m_creature->hasUnitState(UNIT_STAT_FOLLOW) && spell->CanAutoCast(m_creature->getVictim()))
             {
                 targetSpellStore.push_back(TargetSpellList::value_type(m_creature->getVictim(), spell));
+
+                if (spellInfo && !(spellInfo->rangeIndex == SPELL_RANGE_IDX_COMBAT || spellInfo->rangeIndex == SPELL_RANGE_IDX_SELF_ONLY) && m_creature->getVictim() != m_creature)
+                {
+                    SpellRangeEntry const* spellRange = sSpellRangeStore.LookupEntry(spellInfo->rangeIndex);
+                    if (spellRange)
+                        ((Pet*)m_creature)->SetLastSpellMaxRange(spellRange->maxRange);
+                }
                 continue;
             }
             else

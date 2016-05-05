@@ -138,18 +138,23 @@ bool TargetedMovementGeneratorMedium<T, D>::Update(T& owner, const uint32& time_
             // This unit is in hitbox of target
             // howewer we have to check if the target has not moved to update the orientation
             // client will do it automatically 'visually' but it needs the new orientation to send 
-            // or it will retrieve old orientation in some cases (like stun and sap spells)
-            G3D::Vector3 currTargetPos;
-            i_target->GetPosition(currTargetPos.x, currTargetPos.y, currTargetPos.z);
-            if (owner.movespline->Finalized() && currTargetPos != m_prevTargetPos)
+            if (!targetMoved)
             {
-                // position changed we need to adjust owner orientation to continue facing it
-                m_prevTargetPos = currTargetPos;
-                owner.SetInFront(i_target.getTarget());         // set movementinfo orientation, needed for next movement if any
+                // This unit is in hitbox of target
+                // howewer we have to check if the target has not moved to update the orientation
+                // client will do it automatically 'visually' but it needs the new orientation to send 
+                // or it will retrieve old orientation in some cases (like stun and sap spells)
+                G3D::Vector3 currTargetPos;
+                i_target->GetPosition(currTargetPos.x, currTargetPos.y, currTargetPos.z);
+                if (owner.movespline->Finalized() && currTargetPos != m_prevTargetPos)
+                {
+                    // position changed we need to adjust owner orientation to continue facing it
+                    m_prevTargetPos = currTargetPos;
+                    owner.SetInFront(i_target.getTarget());         // set movementinfo orientation, needed for next movement if any
 
-                float angle = owner.GetAngle(i_target.getTarget());
-                owner.SetFacingTo(angle);                       // inform client that orientation changed
-                /*sLog.outString("TargetedMovementGenerator::Updating facing with angle (%f)", angle);*/
+                    float angle = owner.GetAngle(i_target.getTarget());
+                    owner.SetFacingTo(angle);                       // inform client that orientation changed
+                }
             }
         }
     }
@@ -184,9 +189,21 @@ bool TargetedMovementGeneratorMedium<T, D>::RequiresNewPosition(T& owner, float 
 {
     // More distance let have better performance, less distance let have more sensitive reaction at target move.
     if (owner.GetTypeId() == TYPEID_UNIT && ((Creature*)&owner)->CanFly())
+    {
         return !i_target->IsWithinDist3d(x, y, z, this->GetDynamicTargetDistance(owner, true));
+    }
     else
-        return !i_target->IsWithinDist2d(x, y, this->GetDynamicTargetDistance(owner, true));
+    {
+        // Special case for ranged pets in combat
+        if (owner.GetTypeId() == TYPEID_UNIT && owner.GetObjectGuid().IsPet() && ((Pet*)&owner)->IsRanged() && owner.isInCombat())
+            if (((Pet*)&owner)->GetLastSpellMaxRange())
+                return !i_target->IsWithinDist2d(x, y, (((Pet*)&owner)->GetLastSpellMaxRange() / 1.5f));
+            else
+                return false;
+        else
+            return !i_target->IsWithinDist2d(x, y, this->GetDynamicTargetDistance(owner, true));
+    }
+        
 }
 
 //-----------------------------------------------//

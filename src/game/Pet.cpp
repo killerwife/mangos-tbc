@@ -53,7 +53,7 @@ Pet::Pet(PetType type) :
     m_removed(false), m_happinessTimer(7500), m_loyaltyTimer(12000), m_petType(type), m_duration(0),
     m_loyaltyPoints(0), m_bonusdamage(0), m_auraUpdateMask(0), m_loading(false),
     m_declinedname(nullptr), m_petModeFlags(PET_MODE_DEFAULT),
-    m_stayPosSet(false), m_stayPosX(0), m_stayPosY(0), m_stayPosZ(0), m_stayPosO(0)
+    m_stayPosSet(false), m_stayPosX(0), m_stayPosY(0), m_stayPosZ(0), m_stayPosO(0), m_isRanged(false), m_LastSpellMaxRange(0)
 {
     m_name = "Pet";
     m_regenTimer = 4000;
@@ -199,6 +199,9 @@ bool Pet::LoadPetFromDB(Player* owner, uint32 petentry, uint32 petnumber, bool c
         delete result;
         return true;
     }
+
+    if (summon_spell_id == 31687 || summon_spell_id == 688 || cinfo->Family == 27)
+        m_isRanged = true;
 
     m_charmInfo->SetPetNumber(pet_number, IsPermanentPetFor(owner));
 
@@ -1015,6 +1018,9 @@ bool Pet::CreateBaseAtCreature(Creature* creature)
         sLog.outError("CreateBaseAtCreature() failed, creatureInfo is missing!");
         return false;
     }
+
+    if (cinfo->Family == 27)
+        m_isRanged = true;
 
     if (cinfo->CreatureType == CREATURE_TYPE_CRITTER)
     {

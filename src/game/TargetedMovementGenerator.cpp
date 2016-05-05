@@ -196,10 +196,12 @@ bool TargetedMovementGeneratorMedium<T, D>::RequiresNewPosition(T& owner, float 
     {
         // Special case for ranged pets in combat
         if (owner.GetTypeId() == TYPEID_UNIT && owner.GetObjectGuid().IsPet() && ((Pet*)&owner)->IsRanged() && owner.isInCombat())
+        {
             if (((Pet*)&owner)->GetLastSpellMaxRange())
                 return !i_target->IsWithinDist2d(x, y, (((Pet*)&owner)->GetLastSpellMaxRange() / 1.5f));
             else
                 return false;
+        }
         else
             return !i_target->IsWithinDist2d(x, y, this->GetDynamicTargetDistance(owner, true));
     }

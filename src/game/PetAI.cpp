@@ -271,7 +271,7 @@ void PetAI::UpdateAI(const uint32 diff)
             {
                 targetSpellStore.push_back(TargetSpellList::value_type(m_creature->getVictim(), spell));
 
-                if (spellInfo && !(spellInfo->rangeIndex == SPELL_RANGE_IDX_COMBAT || spellInfo->rangeIndex == SPELL_RANGE_IDX_SELF_ONLY) && m_creature->getVictim() != m_creature)
+                if (((Pet*)m_creature)->IsRanged() && spellInfo && !(spellInfo->rangeIndex == SPELL_RANGE_IDX_COMBAT || spellInfo->rangeIndex == SPELL_RANGE_IDX_SELF_ONLY) && m_creature->getVictim() != m_creature)
                 {
                     SpellRangeEntry const* spellRange = sSpellRangeStore.LookupEntry(spellInfo->rangeIndex);
                     if (spellRange)

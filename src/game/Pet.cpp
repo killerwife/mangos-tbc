@@ -200,7 +200,7 @@ bool Pet::LoadPetFromDB(Player* owner, uint32 petentry, uint32 petnumber, bool c
         return true;
     }
 
-    if (summon_spell_id == 31687 || summon_spell_id == 688 || cinfo->Family == 27)
+    if (summon_spell_id == 31687 || summon_spell_id == 688)
         m_isRanged = true;
 
     m_charmInfo->SetPetNumber(pet_number, IsPermanentPetFor(owner));
@@ -1018,9 +1018,6 @@ bool Pet::CreateBaseAtCreature(Creature* creature)
         sLog.outError("CreateBaseAtCreature() failed, creatureInfo is missing!");
         return false;
     }
-
-    if (cinfo->Family == 27)
-        m_isRanged = true;
 
     if (cinfo->CreatureType == CREATURE_TYPE_CRITTER)
     {

@@ -76,7 +76,7 @@ struct ReapplyAffectedPassiveAurasHelper;
 class MANGOS_DLL_SPEC SpellAuraHolder
 {
     public:
-        SpellAuraHolder(SpellEntry const* spellproto, Unit* target, WorldObject* caster, Item* castItem);
+        SpellAuraHolder(SpellEntry const* spellproto, Unit* target, WorldObject* caster, Item* castItem, SpellEntry const* triggeredBySpellInfo = nullptr);
         Aura* m_auras[MAX_EFFECT_INDEX];
 
         void AddAura(Aura* aura, SpellEffectIndex index);
@@ -146,6 +146,8 @@ class MANGOS_DLL_SPEC SpellAuraHolder
         int32 GetAuraDuration() const { return m_duration; }
         void SetAuraDuration(int32 duration) { m_duration = duration; }
 
+        SpellEntry const* GetTriggeredBySpellInfo() const { return m_triggeredBySpellInfo; }
+
         uint8 GetAuraSlot() const { return m_auraSlot; }
         void SetAuraSlot(uint8 slot) { m_auraSlot = slot; }
         uint8 GetAuraLevel() const { return m_auraLevel; }
@@ -197,6 +199,7 @@ class MANGOS_DLL_SPEC SpellAuraHolder
         void UpdateAuraApplication();                       // called at charges or stack changes
 
         SpellEntry const* m_spellProto;
+        SpellEntry const* m_triggeredBySpellInfo;
 
         Unit* m_target;
         ObjectGuid m_casterGuid;
@@ -544,5 +547,5 @@ class MANGOS_DLL_SPEC SingleEnemyTargetAura : public Aura
 };
 
 Aura* CreateAura(SpellEntry const* spellproto, SpellEffectIndex eff, int32* currentBasePoints, SpellAuraHolder* holder, Unit* target, Unit* caster = nullptr, Item* castItem = nullptr);
-SpellAuraHolder* CreateSpellAuraHolder(SpellEntry const* spellproto, Unit* target, WorldObject* caster, Item* castItem = nullptr);
+SpellAuraHolder* CreateSpellAuraHolder(SpellEntry const* spellproto, Unit* target, WorldObject* caster, Item* castItem = nullptr, SpellEntry const* triggeredBySpellInfo = nullptr);
 #endif

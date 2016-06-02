@@ -2712,6 +2712,13 @@ void Spell::EffectTeleportUnits(SpellEffectIndex eff_idx)   // TODO - Use target
     // post effects for TARGET_TABLE_X_Y_Z_COORDINATES
     switch (m_spellInfo->Id)
     {
+		// Darkmoon Faire - Cannon Prep
+		case 24730:
+		case 24831:
+		case 42826:
+		m_caster->CastSpell(m_caster, 24832, true, nullptr, nullptr, ObjectGuid(), m_spellInfo); // Cannon Prep
+		m_caster->CastSpell(m_caster, 42716, false); // Random root spell to preserve hovering
+		return;
         // Dimensional Ripper - Everlook
         case 23442:
         {
@@ -5204,6 +5211,15 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     m_caster->CastSpell(unitTarget, spellId, true);
                     return;
                 }
+				case 24731:                                 // Fire Cannon
+				{
+					if (!unitTarget)
+						return;
+
+					m_caster->RemoveAurasDueToSpell(42716);
+					unitTarget->CastSpell(m_caster, 24742, true); // Magic Wings
+					return;
+				}
                 case 24737:                                 // Ghost Costume
                 {
                     if (!unitTarget || unitTarget->GetTypeId() != TYPEID_PLAYER)
@@ -5650,6 +5666,15 @@ void Spell::EffectScriptEffect(SpellEffectIndex eff_idx)
                     unitTarget->CastCustomSpell(unitTarget, 42576, &basePoints, nullptr, nullptr, true);
                     return;
                 }
+				case 42868:                                 // Fire Cannon
+				{
+					if (!unitTarget)
+						return;
+
+					m_caster->RemoveAurasDueToSpell(42716);
+					unitTarget->CastSpell(m_caster, 42867, true); // Magic Wings
+					return;
+				}
                 case 44876:                                 // Force Cast - Portal Effect: Sunwell Isle
                 {
                     if (!unitTarget)
@@ -6157,11 +6182,22 @@ void Spell::EffectActivateObject(SpellEffectIndex eff_idx)
         case 19:                    // unk - 1 spell
         case 20:                    // unk - 2 spells
         {
-            static ScriptInfo activateCommand = generateActivateCommand();
+			switch (m_spellInfo->Id)
+			{
+			case 24731:
+			case 42868:
+				gameObjTarget->SendGameObjectCustomAnim(gameObjTarget->GetObjectGuid());
+				break;
+			default:
+			{
+				static ScriptInfo activateCommand = generateActivateCommand();
 
-            int32 delay_secs = m_spellInfo->CalculateSimpleValue(eff_idx);
+				int32 delay_secs = m_spellInfo->CalculateSimpleValue(eff_idx);
 
-            gameObjTarget->GetMap()->ScriptCommandStart(activateCommand, delay_secs, m_caster, gameObjTarget);
+				gameObjTarget->GetMap()->ScriptCommandStart(activateCommand, delay_secs, m_caster, gameObjTarget);
+				break;
+			}
+			}
             break;
         }
         case 3:                     // GO custom anim - found mostly in Lunar Fireworks spells

@@ -1215,7 +1215,7 @@ void Spell::DoSpellHitOnUnit(Unit* unit, uint32 effectMask, bool isReflected)
 
     if (IsSpellAppliesAura(m_spellInfo, effectMask))
     {
-        m_spellAuraHolder = CreateSpellAuraHolder(m_spellInfo, unit, realCaster, m_CastItem);
+        m_spellAuraHolder = CreateSpellAuraHolder(m_spellInfo, unit, realCaster, m_CastItem, m_triggeredBySpellInfo);
         m_spellAuraHolder->setDiminishGroup(m_diminishGroup);
     }
     else
@@ -4303,7 +4303,18 @@ SpellCastResult Spell::CheckCast(bool strict)
                 }
             }
 
-            if (!m_IsTriggeredSpell && VMAP::VMapFactory::checkSpellForLoS(m_spellInfo->Id) && !m_caster->IsWithinLOSInMap(target))
+            bool bSkipLOS = false;
+
+            switch (m_spellInfo->Id)
+            {
+                case 24742:                             // Fire Cannon
+                case 36795:                             // Cannon Channel(dnd)
+                case 42867:                             // Fire Cannon
+                    bSkipLOS = true;
+                    break;
+            }
+
+            if (!bSkipLOS && !m_IsTriggeredSpell && VMAP::VMapFactory::checkSpellForLoS(m_spellInfo->Id) && !m_caster->IsWithinLOSInMap(target))
                 return SPELL_FAILED_LINE_OF_SIGHT;
 
             // auto selection spell rank implemented in WorldSession::HandleCastSpellOpcode
@@ -6347,6 +6358,20 @@ bool Spell::CheckTarget(Unit* target, SpellEffectIndex eff)
             // all ok by some way or another, skip normal check
             break;
         default:                                            // normal case
+            switch (m_spellInfo->Id)                        // spells that must be cast when there is LOS
+            {
+            case 24742:
+            case 35514:                                     // Salaadins Stasis
+            case 30835:                                     // Infernal relay
+            case 30836:
+            case 36812:                                     // Soaring - Test Flight quests
+            case 37910:
+            case 37962:
+            case 37968:
+            case 42867:
+                return true;
+            }
+
             // Get GO cast coordinates if original caster -> GO
             if (target != m_caster)
                 if (WorldObject* caster = GetCastingObject())

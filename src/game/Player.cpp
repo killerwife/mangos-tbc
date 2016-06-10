@@ -256,12 +256,12 @@ std::ostringstream& operator<< (std::ostringstream& ss, PlayerTaxi const& taxi)
     return ss;
 }
 
-SpellModifier::SpellModifier(SpellModOp _op, SpellModType _type, int32 _value, SpellEntry const* spellEntry, SpellEffectIndex eff, int16 _charges /*= 0*/) : op(_op), type(_type), charges(_charges), value(_value), spellId(spellEntry->Id), lastAffected(nullptr)
+SpellModifier::SpellModifier(SpellModOp _op, SpellModType _type, int32 _value, SpellEntry const* spellEntry, SpellEffectIndex eff, int32 _priority, int16 _charges /*= 0*/) : op(_op), type(_type), charges(_charges), value(_value), spellId(spellEntry->Id), priority(priority), isFinite(_charges>0)
 {
     mask = sSpellMgr.GetSpellAffectMask(spellEntry->Id, eff);
 }
 
-SpellModifier::SpellModifier(SpellModOp _op, SpellModType _type, int32 _value, Aura const* aura, int16 _charges /*= 0*/) : op(_op), type(_type), charges(_charges), value(_value), spellId(aura->GetId()), lastAffected(nullptr)
+SpellModifier::SpellModifier(SpellModOp _op, SpellModType _type, int32 _value, Aura const* aura, int32 _priority, int16 _charges /*= 0*/) : op(_op), type(_type), charges(_charges), value(_value), spellId(aura->GetId()), priority(priority), isFinite(_charges>0)
 {
     mask = sSpellMgr.GetSpellAffectMask(aura->GetId(), aura->GetEffIndex());
 }
@@ -433,8 +433,6 @@ Player::Player(WorldSession* session): Unit(), m_mover(this), m_camera(this), m_
     m_nextSave = urand(m_nextSave / 2, m_nextSave * 3 / 2);
 
     clearResurrectRequestData();
-
-    m_SpellModRemoveCount = 0;
 
     memset(m_items, 0, sizeof(Item*)*PLAYER_SLOTS_COUNT);
 
@@ -16797,16 +16795,14 @@ bool Player::IsAffectedBySpellmod(SpellEntry const* spellInfo, SpellModifier* mo
     if (!mod || !spellInfo)
         return false;
 
-    if (mod->charges == -1 && mod->lastAffected)            // marked as expired but locked until spell casting finish
+    if (mod->charges == -1)            // marked as expired but locked until spell casting finish
     {
         // prevent apply to any spell except spell that trigger expire
         if (spell)
         {
-            if (mod->lastAffected != spell)
+            if (spell->IsAlreadyConsumed(mod->spellId))
                 return false;
         }
-        else if (mod->lastAffected != FindCurrentSpellBySpellId(spellInfo->Id))
-            return false;
     }
 
     return mod->isAffectedOnSpell(spellInfo);
@@ -16822,10 +16818,15 @@ void Player::AddSpellMod(SpellModifier* mod, bool apply)
         if (mod->mask.IsFitToFamilyMask(_mask))
         {
             int32 val = 0;
-            for (SpellModList::const_iterator itr = m_spellMods[mod->op].begin(); itr != m_spellMods[mod->op].end(); ++itr)
+            for (SpellModifier* modifier : m_spellModsPermanent[mod->op])
             {
-                if ((*itr)->type == mod->type && ((*itr)->mask.IsFitToFamilyMask(_mask)))
-                    val += (*itr)->value;
+                if (modifier->type == mod->type && (modifier->mask.IsFitToFamilyMask(_mask)))
+                    val += modifier->value;
+            }
+            for (SpellModifier* modifier : m_spellModsTemporary[mod->op])
+            {
+                if (modifier->type == mod->type && (modifier->mask.IsFitToFamilyMask(_mask)))
+                    val += modifier->value;
             }
             val += apply ? mod->value : -(mod->value);
             WorldPacket data(opcode, (1 + 1 + 4));
@@ -16837,72 +16838,73 @@ void Player::AddSpellMod(SpellModifier* mod, bool apply)
     }
 
     if (apply)
-        m_spellMods[mod->op].push_back(mod);
+    {
+        if (SpellAuraHolder* holder = GetSpellAuraHolder(mod->spellId))
+            holder->AddSpellMod(mod);
+        if (mod->isFinite)
+        {
+            m_spellModsTemporary[mod->op].push_back(mod);
+            std::sort(m_spellModsTemporary[mod->op].begin(), m_spellModsTemporary[mod->op].end(), SpellModifierComparator());
+        }
+        else
+            m_spellModsPermanent[mod->op].push_back(mod);
+    }
     else
     {
-        if (mod->charges == -1)
-            --m_SpellModRemoveCount;
-        m_spellMods[mod->op].remove(mod);
+        if(mod->isFinite)
+            m_spellModsTemporary[mod->op].erase(std::find(m_spellModsTemporary[mod->op].begin(), m_spellModsTemporary[mod->op].end(),mod));
+        else
+            m_spellModsPermanent[mod->op].remove(mod);
         delete mod;
     }
 }
 
 SpellModifier* Player::GetSpellMod(SpellModOp op, uint32 spellId) const
 {
-    for (SpellModList::const_iterator itr = m_spellMods[op].begin(); itr != m_spellMods[op].end(); ++itr)
-        if ((*itr)->spellId == spellId)
-            return *itr;
+    for (SpellModifier* mod : m_spellModsPermanent[op])
+        if (mod->spellId == spellId)
+            return mod;
+
+    for (SpellModifier* mod : m_spellModsTemporary[op])
+        if (mod->spellId == spellId)
+            return mod;
 
     return nullptr;
 }
 
-void Player::RemoveSpellMods(Spell const* spell)
+void Player::RemoveSpellMods(std::set<uint32> &usedAuraCharges)
 {
-    if (!spell || (m_SpellModRemoveCount == 0))
+    if (!usedAuraCharges.size())
         return;
 
-    for (int i = 0; i < MAX_SPELLMOD; ++i)
+    for (uint32 spellId : usedAuraCharges)
     {
-        for (SpellModList::const_iterator itr = m_spellMods[i].begin(); itr != m_spellMods[i].end();)
-        {
-            SpellModifier* mod = *itr;
-            ++itr;
-
-            if (mod && mod->charges == -1 && (mod->lastAffected == spell || mod->lastAffected == nullptr))
-            {
-                RemoveAurasDueToSpell(mod->spellId);
-                if (m_spellMods[i].empty())
-                    break;
-                else
-                    itr = m_spellMods[i].begin();
-            }
-        }
+        if (SpellAuraHolder* holder = GetSpellAuraHolder(spellId))
+            if (holder->DropAuraCharge())
+                RemoveAurasDueToSpell(spellId);
     }
 }
 
-void Player::ResetSpellModsDueToCanceledSpell(Spell const* spell)
+void Player::ResetSpellModsDueToCanceledSpell(std::set<uint32> &usedAuraCharges)
 {
-    for (int i = 0; i < MAX_SPELLMOD; ++i)
+    if (!usedAuraCharges.size())
+        return;
+
+    for (uint32 spellId : usedAuraCharges)
     {
-        for (SpellModList::const_iterator itr = m_spellMods[i].begin(); itr != m_spellMods[i].end(); ++itr)
-        {
-            SpellModifier* mod = *itr;
-
-            if (mod->lastAffected != spell)
-                continue;
-
-            mod->lastAffected = nullptr;
-
-            if (mod->charges == -1)
-            {
-                mod->charges = 1;
-                if (m_SpellModRemoveCount > 0)
-                    --m_SpellModRemoveCount;
-            }
-            else if (mod->charges > 0)
-                ++mod->charges;
-        }
+        if (SpellAuraHolder* holder = GetSpellAuraHolder(spellId))
+            holder->ResetSpellModCharges();
     }
+}
+
+void Player::RemoveModCharge(uint32 spellId, Spell* spell)
+{
+    if (spell)
+        spell->ConsumedCharge(spellId);
+    else
+        if (SpellAuraHolder* holder = GetSpellAuraHolder(spellId))
+            if (holder->DropAuraCharge())
+                RemoveAurasDueToSpell(spellId);
 }
 
 // send Proficiency

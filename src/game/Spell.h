@@ -347,7 +347,7 @@ class Spell
         SpellCastResult CheckCasterAuras() const;
 
         int32 CalculateDamage(SpellEffectIndex i, Unit* target) { return m_caster->CalculateSpellDamage(target, m_spellInfo, i, &m_currentBasePoints[i]); }
-        static uint32 CalculatePowerCost(SpellEntry const* spellInfo, Unit* caster, Spell const* spell = nullptr, Item* castItem = nullptr);
+        static uint32 CalculatePowerCost(SpellEntry const* spellInfo, Unit* caster, Spell* spell = nullptr, Item* castItem = nullptr);
 
         bool HaveTargetsForEffect(SpellEffectIndex effect) const;
         void Delayed();
@@ -448,6 +448,16 @@ class Spell
         void CleanupTargetList();
         void ClearCastItem();
 
+        void ConsumedCharge(uint32 spellId)
+        {
+            m_usedAuraCharges.insert(spellId);
+        }
+
+        bool IsAlreadyConsumed(uint32 spellId) const
+        {
+            return m_usedAuraCharges.find(spellId) != m_usedAuraCharges.end();
+        }
+
         static void SelectMountByAreaAndSkill(Unit* target, SpellEntry const* parentSpell, uint32 spellId75, uint32 spellId150, uint32 spellId225, uint32 spellId300, uint32 spellIdSpecial);
 
         typedef std::list<Unit*> UnitList;
@@ -505,6 +515,9 @@ class Spell
         DiminishingLevels m_diminishLevel;
         DiminishingGroup m_diminishGroup;
 
+        // spell mods
+        std::set<uint32> m_usedAuraCharges;
+
         // -------------------------------------------
         GameObject* focusObject;
 
@@ -533,7 +546,7 @@ class Spell
 
         // Returns a target that was filled by SPELL_SCRIPT_TARGET (or selected victim) Can return nullptr
         Unit* GetPrefilledUnitTargetOrUnitTarget(SpellEffectIndex effIndex) const;
-        void GetSpellRangeAndRadius(SpellEffectIndex effIndex, float& radius, uint32& EffectChainTarget, uint32& unMaxTargets) const;
+        void GetSpellRangeAndRadius(SpellEffectIndex effIndex, float& radius, uint32& EffectChainTarget, uint32& unMaxTargets);
 
         //*****************************************
         // Spell target subsystem

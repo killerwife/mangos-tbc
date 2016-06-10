@@ -109,19 +109,19 @@ typedef std::unordered_map<uint32, PlayerSpell> PlayerSpellMap;
 // Spell modifier (used for modify other spells)
 struct SpellModifier
 {
-    SpellModifier() : charges(0), lastAffected(nullptr) {}
+    SpellModifier() : charges(0), priority(0), isFinite(false) {}
 
-    SpellModifier(SpellModOp _op, SpellModType _type, int32 _value, uint32 _spellId, uint64 _mask, int16 _charges = 0)
-        : op(_op), type(_type), charges(_charges), value(_value), mask(_mask), spellId(_spellId), lastAffected(nullptr)
+    SpellModifier(SpellModOp _op, SpellModType _type, int32 _value, uint32 _spellId, uint64 _mask, int32 _priority = 0, int16 _charges = 0)
+        : op(_op), type(_type), charges(_charges), value(_value), mask(_mask), spellId(_spellId), priority(priority), isFinite(_charges>0)
     {}
 
-    SpellModifier(SpellModOp _op, SpellModType _type, int32 _value, uint32 _spellId, ClassFamilyMask _mask, int16 _charges = 0)
-        : op(_op), type(_type), charges(_charges), value(_value), mask(_mask), spellId(_spellId), lastAffected(nullptr)
+    SpellModifier(SpellModOp _op, SpellModType _type, int32 _value, uint32 _spellId, ClassFamilyMask _mask, int32 _priority = 0, int16 _charges = 0)
+        : op(_op), type(_type), charges(_charges), value(_value), mask(_mask), spellId(_spellId), priority(priority), isFinite(_charges>0)
     {}
 
-    SpellModifier(SpellModOp _op, SpellModType _type, int32 _value, SpellEntry const* spellEntry, SpellEffectIndex eff, int16 _charges = 0);
+    SpellModifier(SpellModOp _op, SpellModType _type, int32 _value, SpellEntry const* spellEntry, SpellEffectIndex eff, int32 _priority = 0, int16 _charges = 0);
 
-    SpellModifier(SpellModOp _op, SpellModType _type, int32 _value, Aura const* aura, int16 _charges = 0);
+    SpellModifier(SpellModOp _op, SpellModType _type, int32 _value, Aura const* aura, int32 _priority = 0, int16 _charges = 0);
 
     bool isAffectedOnSpell(SpellEntry const* spell) const;
 
@@ -131,10 +131,16 @@ struct SpellModifier
     int32 value;
     ClassFamilyMask mask;
     uint32 spellId;
-    Spell const* lastAffected;                              // mark last charge user, used for cleanup delayed remove spellmods at spell success or restore charges at cast fail (Is one pointer only need for cases mixed castes?)
+    int32 priority;
+    bool isFinite;
+};
+
+struct SpellModifierComparator {
+    bool operator() (SpellModifier* a, SpellModifier* b) { return (a->priority<b->priority); }
 };
 
 typedef std::list<SpellModifier*> SpellModList;
+typedef std::vector<SpellModifier*> SpellModVector;
 
 struct SpellCooldown
 {
@@ -1487,10 +1493,10 @@ class MANGOS_DLL_SPEC Player : public Unit
 
         void AddSpellMod(SpellModifier* mod, bool apply);
         bool IsAffectedBySpellmod(SpellEntry const* spellInfo, SpellModifier* mod, Spell const* spell = nullptr);
-        template <class T> T ApplySpellMod(uint32 spellId, SpellModOp op, T& basevalue, Spell const* spell = nullptr);
+        template <class T> T ApplySpellMod(uint32 spellId, SpellModOp op, T& basevalue, Spell* spell = nullptr);
         SpellModifier* GetSpellMod(SpellModOp op, uint32 spellId) const;
-        void RemoveSpellMods(Spell const* spell);
-        void ResetSpellModsDueToCanceledSpell(Spell const* spell);
+        void RemoveSpellMods(std::set<uint32> &usedAuraCharges);
+        void ResetSpellModsDueToCanceledSpell(std::set<uint32> &usedAuraCharges);
 
         static uint32 const infinityCooldownDelay = MONTH;  // used for set "infinity cooldowns" for spells and check
         static uint32 const infinityCooldownDelayCheck = MONTH / 2;
@@ -2153,6 +2159,8 @@ class MANGOS_DLL_SPEC Player : public Unit
         bool HasTitle(CharTitlesEntry const* title) const { return HasTitle(title->bit_index); }
         void SetTitle(CharTitlesEntry const* title, bool lost = false);
 
+        void RemoveModCharge(uint32 spellId, Spell* spell);
+
     protected:
 
         uint32 m_contestedPvPTimer;
@@ -2279,8 +2287,8 @@ class MANGOS_DLL_SPEC Player : public Unit
         float m_auraBaseMod[BASEMOD_END][MOD_END];
         int16 m_baseRatingValue[MAX_COMBAT_RATING];
 
-        SpellModList m_spellMods[MAX_SPELLMOD];
-        int32 m_SpellModRemoveCount;
+        SpellModList m_spellModsPermanent[MAX_SPELLMOD];
+        SpellModVector m_spellModsTemporary[MAX_SPELLMOD];
         EnchantDurationList m_enchantDuration;
         ItemDurationList m_itemDuration;
 
@@ -2438,16 +2446,14 @@ void AddItemsSetItem(Player* player, Item* item);
 void RemoveItemsSetItem(Player* player, ItemPrototype const* proto);
 
 // "the bodies of template functions must be made available in a header file"
-template <class T> T Player::ApplySpellMod(uint32 spellId, SpellModOp op, T& basevalue, Spell const* spell)
+template <class T> T Player::ApplySpellMod(uint32 spellId, SpellModOp op, T& basevalue, Spell* spell)
 {
     SpellEntry const* spellInfo = sSpellStore.LookupEntry(spellId);
     if (!spellInfo) return 0;
     int32 totalpct = 0;
     int32 totalflat = 0;
-    for (SpellModList::iterator itr = m_spellMods[op].begin(); itr != m_spellMods[op].end(); ++itr)
+    for (SpellModifier* mod : m_spellModsPermanent[op])
     {
-        SpellModifier* mod = *itr;
-
         if (!IsAffectedBySpellmod(spellInfo, mod, spell))
             continue;
         if (mod->type == SPELLMOD_FLAT)
@@ -2464,26 +2470,32 @@ template <class T> T Player::ApplySpellMod(uint32 spellId, SpellModOp op, T& bas
 
             totalpct += mod->value;
         }
-
-        if (mod->charges > 0)
+    }
+    for (SpellModifier* mod : m_spellModsTemporary[op])
+    {
+        if (!IsAffectedBySpellmod(spellInfo, mod, spell))
+            continue;
+        if (mod->type == SPELLMOD_FLAT)
+            totalflat += mod->value;
+        else if (mod->type == SPELLMOD_PCT)
         {
-            if (!spell)
-                spell = FindCurrentSpellBySpellId(spellId);
+            // skip percent mods for null basevalue (most important for spell mods with charges )
+            if (basevalue == T(0))
+                continue;
 
-            // avoid double use spellmod charge by same spell
-            if (!mod->lastAffected || mod->lastAffected != spell)
-            {
-                --mod->charges;
+            // special case (skip >10sec spell casts for instant cast setting)
+            if (mod->op == SPELLMOD_CASTING_TIME  && basevalue >= T(10 * IN_MILLISECONDS) && mod->value <= -100)
+                continue;
 
-                if (mod->charges == 0)
-                {
-                    mod->charges = -1;
-                    ++m_SpellModRemoveCount;
-                }
-
-                mod->lastAffected = spell;
-            }
+            totalpct += mod->value;
         }
+        --mod->charges;
+        RemoveModCharge(mod->spellId, spell);
+            
+        if (!mod->charges)
+            mod->charges = -1;
+
+        break;
     }
 
     float diff = (float)basevalue * (float)totalpct / 100.0f + (float)totalflat;

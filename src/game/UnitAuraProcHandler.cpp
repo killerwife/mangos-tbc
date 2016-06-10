@@ -358,6 +358,11 @@ bool Unit::IsTriggeredAtSpellProcEvent(Unit* pVictim, SpellAuraHolder* holder, S
                 return false;
         }
     }
+
+    for (uint8 i = 0; i < MAX_EFFECT_INDEX; ++i)
+        if (spellProto->Effect[i] == SPELL_EFFECT_APPLY_AURA && (spellProto->EffectApplyAuraName[i] == SPELL_AURA_ADD_PCT_MODIFIER || spellProto->EffectApplyAuraName[i] == SPELL_AURA_ADD_FLAT_MODIFIER))
+            return false;
+
     // Get chance from spell
     float chance = (float)spellProto->procChance;
     // If in spellProcEvent exist custom chance, chance = spellProcEvent->customChance;
@@ -2326,7 +2331,7 @@ SpellAuraProcResult Unit::HandleMendingAuraProc(Unit* /*pVictim*/, uint32 /*dama
 
         if (Player* caster = ((Player*)triggeredByAura->GetCaster()))
         {
-            caster->ApplySpellMod(spellProto->Id, SPELLMOD_RADIUS, radius, nullptr);
+            caster->ApplySpellMod(spellProto->Id, SPELLMOD_RADIUS, radius);
 
             if (Player* target = ((Player*)this)->GetNextRandomRaidMember(radius))
             {

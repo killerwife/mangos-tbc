@@ -157,6 +157,9 @@ class MANGOS_DLL_SPEC SpellAuraHolder
                 return;
             m_procCharges = charges;
 
+            for (SpellModifier* mod : m_modList)
+                mod->charges = charges == 0 ? -1 : charges;
+
             UpdateAuraApplication();
         }
         bool DropAuraCharge()                               // return true if last charge dropped
@@ -165,8 +168,23 @@ class MANGOS_DLL_SPEC SpellAuraHolder
                 return false;
 
             --m_procCharges;
+
+            for (SpellModifier* mod : m_modList)
+                mod->charges = m_procCharges == 0 ? -1 : m_procCharges;
+
             UpdateAuraApplication();
             return m_procCharges == 0;
+        }
+
+        void AddSpellMod(SpellModifier* mod)
+        {
+            m_modList.push_back(mod);
+        }
+
+        void ResetSpellModCharges()
+        {
+            for (SpellModifier* mod : m_modList)
+                mod->charges = m_procCharges == 0 ? -1 : m_procCharges;
         }
 
         time_t GetAuraApplyTime() const { return m_applyTime; }
@@ -222,6 +240,8 @@ class MANGOS_DLL_SPEC SpellAuraHolder
         bool m_deleted: 1;
 
         uint32 m_in_use;                                    // > 0 while in SpellAuraHolder::ApplyModifiers call/SpellAuraHolder::Update/etc
+
+        SpellModList m_modList;
 };
 
 typedef void(Aura::*pAuraHandler)(bool Apply, bool Real);

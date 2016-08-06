@@ -33,10 +33,13 @@ extern SQLStorage sInstanceTemplate;
 extern SQLStorage sWorldTemplate;
 extern SQLStorage sConditionStorage;
 
-extern SQLHashStorage sSpellTemplate;
 extern SQLHashStorage sGOStorage;
 extern SQLHashStorage sCreatureTemplateSpellsStorage;
+extern SQLStorage sSpellStore;
 
 extern SQLMultiStorage sSpellScriptTargetStorage;
+
+
+MANGOS_DLL_SPEC SQLStorage                 const* GetSpellStore();
 
 #endif

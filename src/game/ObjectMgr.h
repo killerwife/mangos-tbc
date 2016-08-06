@@ -670,7 +670,6 @@ class ObjectMgr
 
         void LoadPointsOfInterest();
 
-        void LoadSpellTemplate();
         void LoadCreatureTemplateSpells();
 
         void LoadGameTele();
@@ -683,6 +682,7 @@ class ObjectMgr
         void LoadVendors() { LoadVendors("npc_vendor", false); }
         void LoadTrainerTemplates();
         void LoadTrainers() { LoadTrainers("npc_trainer", false); }
+        void LoadSpellDbc();
 
         /// @param _map Map* of the map for which to load active entities. If nullptr active entities on continents are loaded
         void LoadActiveEntities(Map* _map);

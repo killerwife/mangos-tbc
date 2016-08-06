@@ -728,7 +728,7 @@ void ObjectMgr::ConvertCreatureAddonAuras(CreatureDataAddon* addon, char const* 
         uint32& cAura = const_cast<uint32&>(addon->auras[i]);
         cAura = uint32(val[j]);
 
-        SpellEntry const* AdditionalSpellInfo = sSpellStore.LookupEntry(cAura);
+        SpellEntry const* AdditionalSpellInfo = sSpellStore.LookupEntry<SpellEntry>(cAura);
         if (!AdditionalSpellInfo)
         {
             sLog.outErrorDb("Creature (%s: %u) has wrong spell %u defined in `auras` field in `%s`.", guidEntryStr, addon->guidOrEntry, cAura, table);
@@ -1929,7 +1929,7 @@ void ObjectMgr::LoadItemPrototypes()
             }
         }
 
-        if (proto->RequiredSpell && !sSpellStore.LookupEntry(proto->RequiredSpell))
+        if (proto->RequiredSpell && !sSpellStore.LookupEntry<SpellEntry>(proto->RequiredSpell))
         {
             sLog.outErrorDb("Item (Entry: %u) have wrong (nonexistent) spell in RequiredSpell (%u)", i, proto->RequiredSpell);
             const_cast<ItemPrototype*>(proto)->RequiredSpell = 0;
@@ -2020,7 +2020,7 @@ void ObjectMgr::LoadItemPrototypes()
             }
             else
             {
-                SpellEntry const* spellInfo = sSpellStore.LookupEntry(proto->Spells[1].SpellId);
+                SpellEntry const* spellInfo = sSpellStore.LookupEntry<SpellEntry>(proto->Spells[1].SpellId);
                 if (!spellInfo)
                 {
                     sLog.outErrorDb("Item (Entry: %u) has wrong (not existing) spell in spellid_%d (%u)", i, 1 + 1, proto->Spells[1].SpellId);
@@ -2074,7 +2074,7 @@ void ObjectMgr::LoadItemPrototypes()
 
                 if (proto->Spells[j].SpellId)
                 {
-                    SpellEntry const* spellInfo = sSpellStore.LookupEntry(proto->Spells[j].SpellId);
+                    SpellEntry const* spellInfo = sSpellStore.LookupEntry<SpellEntry>(proto->Spells[j].SpellId);
                     if (!spellInfo)
                     {
                         sLog.outErrorDb("Item (Entry: %u) has wrong (not existing) spell in spellid_%d (%u)", i, j + 1, proto->Spells[j].SpellId);
@@ -2328,7 +2328,7 @@ void ObjectMgr::LoadItemRequiredTarget()
 
         for (int i = 0; i < MAX_ITEM_PROTO_SPELLS; ++i)
         {
-            if (SpellEntry const* pSpellInfo = sSpellStore.LookupEntry(pItemProto->Spells[i].SpellId))
+            if (SpellEntry const* pSpellInfo = sSpellStore.LookupEntry<SpellEntry>(pItemProto->Spells[i].SpellId))
             {
                 if (pItemProto->Spells[i].SpellTrigger == ITEM_SPELLTRIGGER_ON_USE)
                 {
@@ -2701,7 +2701,7 @@ void ObjectMgr::LoadPlayerInfo()
                 }
 
                 uint32 spell_id = fields[2].GetUInt32();
-                if (!sSpellStore.LookupEntry(spell_id))
+                if (!sSpellStore.LookupEntry<SpellEntry>(spell_id))
                 {
                     sLog.outErrorDb("Non existing spell %u in `playercreateinfo_spell` table, ignoring.", spell_id);
                     continue;
@@ -3677,7 +3677,7 @@ void ObjectMgr::LoadQuests()
 
         if (qinfo->SrcSpell)
         {
-            SpellEntry const* spellInfo = sSpellStore.LookupEntry(qinfo->SrcSpell);
+            SpellEntry const* spellInfo = sSpellStore.LookupEntry<SpellEntry>(qinfo->SrcSpell);
             if (!spellInfo)
             {
                 sLog.outErrorDb("Quest %u has `SrcSpell` = %u but spell %u doesn't exist, quest can't be done.",
@@ -3746,7 +3746,7 @@ void ObjectMgr::LoadQuests()
         {
             if (uint32 id = qinfo->ReqSpell[j])
             {
-                SpellEntry const* spellInfo = sSpellStore.LookupEntry(id);
+                SpellEntry const* spellInfo = sSpellStore.LookupEntry<SpellEntry>(id);
                 if (!spellInfo)
                 {
                     sLog.outErrorDb("Quest %u has `ReqSpellCast%d` = %u but spell %u does not exist, quest can't be done.",
@@ -3913,7 +3913,7 @@ void ObjectMgr::LoadQuests()
 
         if (qinfo->RewSpell)
         {
-            SpellEntry const* spellInfo = sSpellStore.LookupEntry(qinfo->RewSpell);
+            SpellEntry const* spellInfo = sSpellStore.LookupEntry<SpellEntry>(qinfo->RewSpell);
 
             if (!spellInfo)
             {
@@ -3937,7 +3937,7 @@ void ObjectMgr::LoadQuests()
 
         if (qinfo->RewSpellCast)
         {
-            SpellEntry const* spellInfo = sSpellStore.LookupEntry(qinfo->RewSpellCast);
+            SpellEntry const* spellInfo = sSpellStore.LookupEntry<SpellEntry>(qinfo->RewSpellCast);
 
             if (!spellInfo)
             {
@@ -4028,9 +4028,9 @@ void ObjectMgr::LoadQuests()
     }
 
     // check QUEST_SPECIAL_FLAG_EXPLORATION_OR_EVENT for spell with SPELL_EFFECT_QUEST_COMPLETE
-    for (uint32 i = 0; i < sSpellStore.GetNumRows(); ++i)
+    for (uint32 i = 0; i < sSpellStore.GetMaxEntry(); ++i)
     {
-        SpellEntry const* spellInfo = sSpellStore.LookupEntry(i);
+        SpellEntry const* spellInfo = sSpellStore.LookupEntry<SpellEntry>(i);
         if (!spellInfo)
             continue;
 
@@ -4261,7 +4261,7 @@ void ObjectMgr::LoadPetCreateSpells()
 
             have_spell_db = true;
 
-            SpellEntry const* i_spell = sSpellStore.LookupEntry(PetCreateSpell.spellid[i]);
+            SpellEntry const* i_spell = sSpellStore.LookupEntry<SpellEntry>(PetCreateSpell.spellid[i]);
             if (!i_spell)
             {
                 sLog.outErrorDb("Spell %u listed in `petcreateinfo_spell` does not exist", PetCreateSpell.spellid[i]);
@@ -4290,9 +4290,9 @@ void ObjectMgr::LoadPetCreateSpells()
 
     // cache spell->learn spell map for use in next loop
     std::map<uint32, uint32> learnCache;
-    for (uint32 spell_id = 1; spell_id < sSpellStore.GetNumRows(); ++spell_id)
+    for (uint32 spell_id = 1; spell_id < sSpellStore.GetMaxEntry(); ++spell_id)
     {
-        SpellEntry const* spellproto = sSpellStore.LookupEntry(spell_id);
+        SpellEntry const* spellproto = sSpellStore.LookupEntry<SpellEntry>(spell_id);
         if (!spellproto)
             continue;
 
@@ -5803,7 +5803,7 @@ inline void CheckGOLinkedTrapId(GameObjectInfo const* goInfo, uint32 dataN, uint
 
 inline void CheckGOSpellId(GameObjectInfo const* goInfo, uint32 dataN, uint32 N)
 {
-    if (sSpellStore.LookupEntry(dataN))
+    if (sSpellStore.LookupEntry<SpellEntry>(dataN))
         return;
 
     sLog.outErrorDb("Gameobject (Entry: %u GoType: %u) have data%d=%u but Spell (Entry %u) not exist.",
@@ -6534,30 +6534,22 @@ struct SQLSpellLoader : public SQLStorageLoaderBase<SQLSpellLoader, SQLHashStora
     }
 };
 
-void ObjectMgr::LoadSpellTemplate()
+void ObjectMgr::LoadSpellDbc()
 {
-    SQLSpellLoader loader;
-    loader.Load(sSpellTemplate);
+    sSpellStore.Load();
 
-    sLog.outString(">> Loaded %u spell definitions", sSpellTemplate.GetRecordCount());
-    sLog.outString();
-
-    for (uint32 i = 1; i < sSpellTemplate.GetMaxEntry(); ++i)
+    /* TODO add validation for spell_dbc */
+    for (SQLStorageBase::SQLSIterator<SpellEntry> itr = sSpellStore.getDataBegin<SpellEntry>(); itr < sSpellStore.getDataEnd<SpellEntry>(); ++itr)
     {
-        // check data correctness
-        SpellEntry const* spellEntry = sSpellTemplate.LookupEntry<SpellEntry>(i);
-        if (!spellEntry)
-            continue;
-
-        // insert serverside spell data
-        if (sSpellStore.GetNumRows() <= i)
+        if (!sSpellStore.LookupEntry<SpellEntry>(itr->Id))
         {
-            sLog.outErrorDb("Loading Spell Template for spell %u, index out of bounds (max = %u)", i, sSpellStore.GetNumRows());
-            continue;
+            sLog.outErrorDb("LoadSpellDbc: implement validation to erase spell if it does not confirm to requirements for spells", itr->Id);
+            sSpellStore.EraseEntry(itr->Id);
         }
-        else
-            sSpellStore.InsertEntry(const_cast<SpellEntry*>(spellEntry), i);
     }
+
+    sLog.outString(">> Loaded %u spell_dbc records", sSpellStore.GetRecordCount());
+    sLog.outString();
 }
 
 void ObjectMgr::DeleteCreatureData(uint32 guid)
@@ -7674,7 +7666,7 @@ bool PlayerCondition::IsValid(uint16 entry, ConditionType condition, uint32 valu
         case CONDITION_AURA:
         case CONDITION_SOURCE_AURA:
         {
-            if (!sSpellStore.LookupEntry(value1))
+            if (!sSpellStore.LookupEntry<SpellEntry>(value1))
             {
                 sLog.outErrorDb("Aura condition (entry %u, type %u) requires to have non existing spell (Id: %d), skipped", entry, condition, value1);
                 return false;
@@ -7799,7 +7791,7 @@ bool PlayerCondition::IsValid(uint16 entry, ConditionType condition, uint32 valu
         }
         case CONDITION_NO_AURA:
         {
-            if (!sSpellStore.LookupEntry(value1))
+            if (!sSpellStore.LookupEntry<SpellEntry>(value1))
             {
                 sLog.outErrorDb("Aura condition (entry %u, type %u) requires to have non existing spell (Id: %d), skipped", entry, condition, value1);
                 return false;
@@ -7869,7 +7861,7 @@ bool PlayerCondition::IsValid(uint16 entry, ConditionType condition, uint32 valu
         }
         case CONDITION_SPELL:
         {
-            if (!sSpellStore.LookupEntry(value1))
+            if (!sSpellStore.LookupEntry<SpellEntry>(value1))
             {
                 sLog.outErrorDb("Spell condition (entry %u, type %u) requires to have non existing spell (Id: %d), skipped", entry, condition, value1);
                 return false;
@@ -8261,7 +8253,7 @@ void ObjectMgr::LoadTrainers(char const* tableName, bool isTemplates)
         uint32 entry  = fields[0].GetUInt32();
         uint32 spell  = fields[1].GetUInt32();
 
-        SpellEntry const* spellinfo = sSpellStore.LookupEntry(spell);
+        SpellEntry const* spellinfo = sSpellStore.LookupEntry<SpellEntry>(spell);
         if (!spellinfo)
         {
             sLog.outErrorDb("Table `%s` (Entry: %u ) has non existing spell %u, ignore", tableName, entry, spell);
@@ -9114,9 +9106,10 @@ void ObjectMgr::LoadCreatureTemplateSpells()
             sLog.outErrorDb("LoadCreatureTemplateSpells: Spells found for creature entry %u, but creature does not exist, skipping", itr->entry);
             sCreatureTemplateSpellsStorage.EraseEntry(itr->entry);
         }
+
         for (uint8 i = 0; i < CREATURE_MAX_SPELLS; ++i)
         {
-            if (itr->spells[i] && !sSpellStore.LookupEntry(itr->spells[i]))
+            if (itr->spells[i] && !sSpellStore.LookupEntry<SpellEntry>(itr->spells[i]))
             {
                 sLog.outErrorDb("LoadCreatureTemplateSpells: Spells found for creature entry %u, assigned spell %u does not exist, set to 0", itr->entry, itr->spells[i]);
                 const_cast<CreatureTemplateSpells*>(*itr)->spells[i] = 0;

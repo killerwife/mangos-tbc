@@ -143,7 +143,7 @@ bool Pet::LoadPetFromDB(Player* owner, uint32 petentry, uint32 petnumber, bool c
     }
 
     uint32 summon_spell_id = fields[21].GetUInt32();
-    SpellEntry const* spellInfo = sSpellStore.LookupEntry(summon_spell_id);
+    SpellEntry const* spellInfo = sSpellStore.LookupEntry<SpellEntry>(summon_spell_id);
 
     bool is_temporary_summoned = spellInfo && GetSpellDuration(spellInfo) > 0;
 
@@ -909,7 +909,7 @@ void Pet::Unsummon(PetSaveMode mode, Unit* owner /*= nullptr*/)
             {
                 // returning of reagents only for players, so best done here
                 uint32 spellId = GetUInt32Value(UNIT_CREATED_BY_SPELL);
-                SpellEntry const* spellInfo = sSpellStore.LookupEntry(spellId);
+                SpellEntry const* spellInfo = sSpellStore.LookupEntry<SpellEntry>(spellId);
 
                 if (spellInfo)
                 {
@@ -1351,7 +1351,7 @@ void Pet::_LoadSpellCooldowns()
             uint32 spell_id = fields[0].GetUInt32();
             time_t db_time  = (time_t)fields[1].GetUInt64();
 
-            if (!sSpellStore.LookupEntry(spell_id))
+            if (!sSpellStore.LookupEntry<SpellEntry>(spell_id))
             {
                 sLog.outError("Pet %u have unknown spell %u in `pet_spell_cooldown`, skipping.", m_charmInfo->GetPetNumber(), spell_id);
                 continue;
@@ -1499,7 +1499,7 @@ void Pet::_LoadAuras(uint32 timediff)
             int32 remaintime = fields[12].GetInt32();
             uint32 effIndexMask = fields[13].GetUInt32();
 
-            SpellEntry const* spellproto = sSpellStore.LookupEntry(spellid);
+            SpellEntry const* spellproto = sSpellStore.LookupEntry<SpellEntry>(spellid);
             if (!spellproto)
             {
                 sLog.outError("Unknown spell (spellid %u), ignore.", spellid);
@@ -1641,7 +1641,7 @@ void Pet::_SaveAuras()
 
 bool Pet::addSpell(uint32 spell_id, ActiveStates active /*= ACT_DECIDE*/, PetSpellState state /*= PETSPELL_NEW*/, PetSpellType type /*= PETSPELL_NORMAL*/)
 {
-    SpellEntry const* spellInfo = sSpellStore.LookupEntry(spell_id);
+    SpellEntry const* spellInfo = sSpellStore.LookupEntry<SpellEntry>(spell_id);
     if (!spellInfo)
     {
         // do pet spell book cleanup
@@ -1825,7 +1825,7 @@ void Pet::InitPetCreateSpells()
             if (!CreateSpells->spellid[i])
                 break;
 
-            SpellEntry const* learn_spellproto = sSpellStore.LookupEntry(CreateSpells->spellid[i]);
+            SpellEntry const* learn_spellproto = sSpellStore.LookupEntry<SpellEntry>(CreateSpells->spellid[i]);
             if (!learn_spellproto)
                 continue;
 

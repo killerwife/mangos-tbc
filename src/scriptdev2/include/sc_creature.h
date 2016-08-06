@@ -7,6 +7,7 @@
 
 #include "Chat.h"
 #include "DBCStores.h"                                      // Mostly only used the Lookup acces, but a few cases really do use the DBC-Stores
+#include "SQLStorages.h"
 
 // Spell targets used by SelectSpell
 enum SelectTarget

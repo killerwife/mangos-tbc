@@ -282,8 +282,8 @@ void SQLStorageLoaderBase<DerivedLoader, StorageClass>::Load(StorageClass& store
             {
                 case FT_LOGIC:  storeValue((bool)(fields[y].GetUInt32() > 0), store, record, x, offset);  ++x; break;
                 case FT_BYTE:   storeValue((char)fields[y].GetUInt8(), store, record, x, offset);         ++x; break;
-                case FT_INT:    storeValue((uint32)fields[y].GetUInt32(), store, record, x, offset);      ++x; break;
-                case FT_FLOAT:  storeValue((float)fields[y].GetFloat(), store, record, x, offset);        ++x; break;
+                case FT_INT:    storeValue(fields[y].GetUInt32(), store, record, x, offset);              ++x; break;
+                case FT_FLOAT:  storeValue(fields[y].GetFloat(), store, record, x, offset);               ++x; break;
                 case FT_STRING: storeValue((char const*)fields[y].GetString(), store, record, x, offset); ++x; break;
                 case FT_NA:
                 case FT_NA_BYTE:

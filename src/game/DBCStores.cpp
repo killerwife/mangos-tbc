@@ -121,7 +121,7 @@ DBCStorage <SoundEntriesEntry> sSoundEntriesStore(SoundEntriesfmt);
 
 DBCStorage <SpellItemEnchantmentEntry> sSpellItemEnchantmentStore(SpellItemEnchantmentfmt);
 DBCStorage <SpellItemEnchantmentConditionEntry> sSpellItemEnchantmentConditionStore(SpellItemEnchantmentConditionfmt);
-DBCStorage <SpellEntry> sSpellStore(SpellEntryfmt);
+//DBCStorage <SpellEntry> sSpellStore(SpellEntryfmt);
 SpellCategoryStore sSpellCategoryStore;
 PetFamilySpellsStore sPetFamilySpellsStore;
 
@@ -319,10 +319,10 @@ void LoadDBCStores(const std::string& dataPath)
     LoadDBC(availableDbcLocales, bar, bad_dbc_files, sSkillLineAbilityStore,    dbcPath, "SkillLineAbility.dbc");
     LoadDBC(availableDbcLocales, bar, bad_dbc_files, sSkillRaceClassInfoStore,  dbcPath, "SkillRaceClassInfo.dbc");
     LoadDBC(availableDbcLocales, bar, bad_dbc_files, sSoundEntriesStore,        dbcPath, "SoundEntries.dbc");
-    LoadDBC(availableDbcLocales, bar, bad_dbc_files, sSpellStore,               dbcPath, "Spell.dbc");
-    for (uint32 i = 1; i < sSpellStore.GetNumRows(); ++i)
+    //LoadDBC(availableDbcLocales, bar, bad_dbc_files, sSpellStore,               dbcPath, "Spell.dbc");
+    for (uint32 i = 1; i < sSpellStore.GetMaxEntry(); ++i)
     {
-        SpellEntry const* spell = sSpellStore.LookupEntry(i);
+        SpellEntry const* spell = sSpellStore.LookupEntry<SpellEntry>(i);
         if (spell && spell->Category)
             sSpellCategoryStore[spell->Category].insert(i);
 
@@ -340,7 +340,7 @@ void LoadDBCStores(const std::string& dataPath)
         if (!skillLine)
             continue;
 
-        SpellEntry const* spellInfo = sSpellStore.LookupEntry(skillLine->spellId);
+        SpellEntry const* spellInfo = sSpellStore.LookupEntry<SpellEntry>(skillLine->spellId);
         if (spellInfo && (spellInfo->Attributes & (SPELL_ATTR_UNK4 | SPELL_ATTR_PASSIVE | SPELL_ATTR_UNK7 | SPELL_ATTR_UNK8)) == (SPELL_ATTR_UNK4 | SPELL_ATTR_PASSIVE | SPELL_ATTR_UNK7 | SPELL_ATTR_UNK8))
         {
             for (unsigned int i = 1; i < sCreatureFamilyStore.GetNumRows(); ++i)
@@ -478,8 +478,8 @@ void LoadDBCStores(const std::string& dataPath)
     // include existing nodes that have at least single not spell base (scripted) path
     {
         std::set<uint32> spellPaths;
-        for (uint32 i = 1; i < sSpellStore.GetNumRows(); ++i)
-            if (SpellEntry const* sInfo = sSpellStore.LookupEntry(i))
+        for (uint32 i = 1; i < sSpellStore.GetMaxEntry(); ++i)
+            if (SpellEntry const* sInfo = sSpellStore.LookupEntry<SpellEntry>(i))
                 for (int j = 0; j < MAX_EFFECT_INDEX; ++j)
                     if (sInfo->Effect[j] == 123 /*SPELL_EFFECT_SEND_TAXI*/)
                         spellPaths.insert(sInfo->EffectMiscValue[j]);
@@ -548,7 +548,7 @@ void LoadDBCStores(const std::string& dataPath)
     }
 
     // Check loaded DBC files proper version
-    if (!sSpellStore.LookupEntry(53085)            ||
+    if (!sSpellStore.LookupEntry<SpellEntry>(53085)            ||
             !sSkillLineAbilityStore.LookupEntry(17514) ||
             !sMapStore.LookupEntry(598)                ||
             !sGemPropertiesStore.LookupEntry(1127)     ||
@@ -820,7 +820,7 @@ uint32 GetCreatureModelRace(uint32 model_id)
 
 // script support functions
 MANGOS_DLL_SPEC DBCStorage <SoundEntriesEntry>  const* GetSoundEntriesStore()   { return &sSoundEntriesStore;   }
-MANGOS_DLL_SPEC DBCStorage <SpellEntry>         const* GetSpellStore()          { return &sSpellStore;          }
+// MANGOS_DLL_SPEC DBCStorage <SpellEntry>         const* GetSpellStore()          { return &sSpellStore;          }
 MANGOS_DLL_SPEC DBCStorage <SpellRangeEntry>    const* GetSpellRangeStore()     { return &sSpellRangeStore;     }
 MANGOS_DLL_SPEC DBCStorage <FactionEntry>       const* GetFactionStore()        { return &sFactionStore;        }
 MANGOS_DLL_SPEC DBCStorage <ItemEntry>          const* GetItemDisplayStore()    { return &sItemStore;           }

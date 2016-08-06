@@ -23,6 +23,7 @@ EndScriptData */
 
 #include "precompiled.h"
 #include "karazhan.h"
+#include "Spell.h"
 
 enum
 {

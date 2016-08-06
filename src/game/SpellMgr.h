@@ -528,7 +528,7 @@ inline uint32 GetDispellMask(DispelType dispel)
 
 inline bool IsAuraAddedBySpell(uint32 auraType, uint32 spellId)
 {
-    SpellEntry const* spellproto = sSpellStore.LookupEntry(spellId);
+    SpellEntry const* spellproto = sSpellStore.LookupEntry<SpellEntry>(spellId);
     if (!spellproto) return false;
 
     for (int i = 0; i < 3; i++)
@@ -849,7 +849,7 @@ class SpellMgr
             SpellAffectMap::const_iterator itr = mSpellAffectMap.find((spellId << 8) + effectId);
             if (itr != mSpellAffectMap.end())
                 return ClassFamilyMask(itr->second);
-            if (SpellEntry const* spellEntry = sSpellStore.LookupEntry(spellId))
+            if (SpellEntry const* spellEntry = sSpellStore.LookupEntry<SpellEntry>(spellId))
                 return ClassFamilyMask(spellEntry->EffectItemType[effectId]);
             return ClassFamilyMask();
         }

@@ -82,41 +82,148 @@ void WorldSession::HandlePetAction(WorldPacket& recv_data)
         }
     }
 
-    if (!pet && petUnit->hasUnitState(UNIT_STAT_CONTROLLED))
+    if (!pet && (petUnit->hasUnitState(UNIT_STAT_CONTROLLED) || petUnit->HasAuraType(SPELL_AURA_MOD_CHARM)))
     {
-        // possess case
-        if (flag != uint8(ACT_COMMAND))
-        {
-            sLog.outError("PetHAndler: unknown PET flag Action %i and spellid %i. For possessed %s", uint32(flag), spellid, petUnit->GetGuidStr().c_str());
-            return;
-        }
 
-        switch (spellid)
+        switch (flag)
         {
-            case COMMAND_STAY:
-            case COMMAND_FOLLOW:
-                charmInfo->SetCommandState(CommandStates(spellid));
-                break;
-            case COMMAND_ATTACK:
+            case ACT_COMMAND:
             {
-                Unit* targetUnit = targetGuid ? _player->GetMap()->GetUnit(targetGuid) : nullptr;
-
-                if (targetUnit && targetUnit != petUnit && targetUnit->isTargetableForAttack())
+                switch (spellid)
                 {
-                    _player->SetInCombatState(true, targetUnit);
+                    case COMMAND_STAY:
+                    case COMMAND_FOLLOW:
+                        charmInfo->SetCommandState(CommandStates(spellid));
+                        break;
+                    case COMMAND_ATTACK:
+                    {
+                        Unit* targetUnit = targetGuid ? _player->GetMap()->GetUnit(targetGuid) : nullptr;
 
-                    // This is true if pet has no target or has target but targets differs.
-                    if (petUnit->getVictim() != targetUnit)
-                        petUnit->Attack(targetUnit, true);
+                        if (targetUnit && targetUnit != petUnit && targetUnit->isTargetableForAttack())
+                        {
+                            _player->SetInCombatState(true, targetUnit);
+
+                            // This is true if pet has no target or has target but targets differs.
+                            if (petUnit->getVictim() != targetUnit)
+                                petUnit->Attack(targetUnit, true);
+                        }
+                        break;
+                    }
+                    case COMMAND_ABANDON:
+                        _player->Uncharm();
+                        break;
+                    default:
+                        sLog.outError("PetHandler: Not allowed action %i and spellid %i. Pet %s owner is %s", uint32(flag), spellid, petUnit->GetGuidStr().c_str(), _player->GetGuidStr().c_str());
+                        break;
                 }
                 break;
             }
-            case COMMAND_ABANDON:
-                _player->Uncharm();
+            case ACT_DISABLED:                                  // 0x81    spell (disabled), ignore
+            case ACT_PASSIVE:                                   // 0x01
+            case ACT_ENABLED:                                   // 0xC1    spell
+            {
+                Unit* unit_target = targetGuid ? _player->GetMap()->GetUnit(targetGuid) : nullptr;
+
+                // do not cast unknown spells
+                SpellEntry const* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(spellid);
+                if (!spellInfo)
+                {
+                    sLog.outError("WORLD: unknown PET spell id %i", spellid);
+                    return;
+                }
+
+                if (petUnit->GetCharmInfo() && petUnit->GetCharmInfo()->GetGlobalCooldownMgr().HasGlobalCooldown(spellInfo))
+                    return;
+
+                for (int i = 0; i < MAX_EFFECT_INDEX; ++i)
+                {
+                    if (spellInfo->EffectImplicitTargetA[i] == TARGET_ALL_ENEMY_IN_AREA
+                        || spellInfo->EffectImplicitTargetA[i] == TARGET_ALL_ENEMY_IN_AREA_INSTANT
+                        || spellInfo->EffectImplicitTargetA[i] == TARGET_ALL_ENEMY_IN_AREA_CHANNELED)
+                        return;
+                }
+
+                // do not cast passive spells
+                if (IsPassiveSpell(spellInfo))
+                    return;
+
+                _player->SetInCombatState(true, unit_target);
+
+                petUnit->clearUnitState(UNIT_STAT_MOVING);
+
+                Spell* spell = CreateSpell(petUnit, spellInfo, false);
+
+                SpellCastResult result = spell->CheckPetCast(unit_target);
+
+                const SpellRangeEntry* sRange = sSpellRangeStore.LookupEntry(spellInfo->rangeIndex);
+
+                if (unit_target && !(petUnit->IsWithinDistInMap(unit_target, sRange->maxRange) && petUnit->IsWithinLOSInMap(unit_target))
+                    && !(GetPlayer()->IsFriendlyTo(unit_target) || petUnit->HasAuraType(SPELL_AURA_MOD_POSSESS)))
+                {
+                    spell->finish(false);
+                    delete spell;
+
+                    petUnit->AttackStop();
+                    petUnit->GetMotionMaster()->Clear();
+
+                    ((Creature*)petUnit)->AI()->AttackStart(unit_target);
+
+                    petUnit->SendPetAIReaction();
+
+                    return;
+                }
+
+                // auto turn to target unless possessed
+                if (result == SPELL_FAILED_UNIT_NOT_INFRONT && !petUnit->HasAuraType(SPELL_AURA_MOD_POSSESS) && !petUnit->HasAura(30019)) // possible TODO: more conditions
+                {
+                    if (unit_target)
+                    {
+                        petUnit->SetInFront(unit_target);
+                        if (unit_target->GetTypeId() == TYPEID_PLAYER)
+                            petUnit->SendCreateUpdateToPlayer((Player*)unit_target);
+                    }
+                    else if (Unit* unit_target2 = spell->m_targets.getUnitTarget())
+                    {
+                        petUnit->SetInFront(unit_target2);
+                        if (unit_target2->GetTypeId() == TYPEID_PLAYER)
+                            petUnit->SendCreateUpdateToPlayer((Player*)unit_target2);
+                    }
+                    if (Unit* powner = petUnit->GetCharmerOrOwner())
+                        if (powner->GetTypeId() == TYPEID_PLAYER)
+                            petUnit->SendCreateUpdateToPlayer((Player*)powner);
+                    result = SPELL_CAST_OK;
+                }
+
+                if (result == SPELL_CAST_OK)
+                {
+                    ((Creature*)petUnit)->AddCreatureSpellCooldown(spellid);
+
+                    unit_target = spell->m_targets.getUnitTarget();
+
+                    spell->SpellStart(&(spell->m_targets));
+                }
+                else
+                {
+                    if (petUnit->HasAuraType(SPELL_AURA_MOD_POSSESS))
+                        Spell::SendCastResult(GetPlayer(), spellInfo, 0, result);
+                    else
+                    {
+                        Unit* owner = petUnit->GetCharmerOrOwner();
+                        if (owner && owner->GetTypeId() == TYPEID_PLAYER)
+                            Spell::SendCastResult((Player*)owner, spellInfo, 0, result, true);
+                    }
+
+                    if (!((Creature*)petUnit)->HasSpellCooldown(spellid))
+                        GetPlayer()->SendClearCooldown(spellid, petUnit);
+
+                    spell->finish(false);
+                    delete spell;
+                }
                 break;
+            }
             default:
-                sLog.outError("PetHandler: Not allowed action %i and spellid %i. Pet %s owner is %s", uint32(flag), spellid, petUnit->GetGuidStr().c_str(), _player->GetGuidStr().c_str());
-                break;
+                sLog.outError("PetHAndler: unknown PET flag Action %i and spellid %i. For possessed %s", uint32(flag), spellid, petUnit->GetGuidStr().c_str());
+                return;
         }
         return;
     }

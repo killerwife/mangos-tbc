@@ -5282,8 +5282,9 @@ bool Unit::Attack(Unit* victim, bool meleeAttack)
             ((Creature*)this)->SetCombatStartPosition(GetPositionX(), GetPositionY(), GetPositionZ());
     }
 
-    // Set our target
-    SetTargetGuid(victim->GetObjectGuid());
+    // Set our target if not chess piece controlled by player
+    if(!HasAura(30019))
+        SetTargetGuid(victim->GetObjectGuid());
 
     if (meleeAttack)
         addUnitState(UNIT_STAT_MELEE_ATTACKING);

@@ -750,6 +750,41 @@ class MANGOS_DLL_SPEC Creature : public Unit
         void SetVirtualItem(VirtualItemSlot slot, uint32 item_id);
         void SetVirtualItemRaw(VirtualItemSlot slot, uint32 display_id, uint32 info0, uint32 info1);
 
+        /*Fixing charmed effects*/
+        bool m_retreating;
+
+        void SetIsRetreating(bool retreating = false) { m_retreating = retreating; }
+        bool GetIsRetreating() { return m_retreating; }
+
+        bool m_stayPosSet;
+        float m_stayPosX;
+        float m_stayPosY;
+        float m_stayPosZ;
+        float m_stayPosO;
+
+        float GetStayPosX() { return m_stayPosX; }
+        float GetStayPosY() { return m_stayPosY; }
+        float GetStayPosZ() { return m_stayPosZ; }
+        float GetStayPosO() { return m_stayPosO; }
+
+        void SetStayPosition(bool stay = false);
+        bool IsStayPosSet() { return m_stayPosSet; }
+
+        uint32          m_opener;
+        uint32          m_openerMinRange;
+        uint32          m_openerMaxRange;
+
+        uint32 GetSpellOpener() { return m_opener; }
+        uint32 GetSpellOpenerMinRange() { return m_openerMinRange; }
+        uint32 GetSpellOpenerMaxRange() { return m_openerMaxRange; }
+
+        void SetSpellOpener(uint32 spellId = 0, uint32 minRange = 0, uint32 maxRange = 0)
+        {
+            m_opener = spellId;
+            m_openerMinRange = minRange;
+            m_openerMaxRange = maxRange;
+        }
+
     protected:
         bool MeetsSelectAttackingRequirement(Unit* pTarget, SpellEntry const* pSpellInfo, uint32 selectFlags) const;
 

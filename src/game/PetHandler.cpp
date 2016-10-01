@@ -91,10 +91,48 @@ void WorldSession::HandlePetAction(WorldPacket& recv_data)
             {
                 switch (spellid)
                 {
-                    case COMMAND_STAY:
-                    case COMMAND_FOLLOW:
-                        charmInfo->SetCommandState(CommandStates(spellid));
+                    case COMMAND_STAY:                          // flat=1792  // STAY
+                    {
+                        if (petUnit->HasAuraType(SPELL_AURA_MOD_CHARM))
+                        {
+                            Creature* petCreature = ((Creature*)petUnit);
+                            if (!petUnit->hasUnitState(UNIT_STAT_CONTROLLED))
+                            {
+                                petUnit->StopMoving();
+                                petUnit->GetMotionMaster()->Clear();
+                            }
+                            petUnit->AttackStop(true, true);
+                            petCreature->SetIsRetreating();
+                            petCreature->SetStayPosition(true);
+                            petCreature->SetSpellOpener();
+                            charmInfo->SetCommandState(COMMAND_STAY);
+                            if (petCreature->getVictim())
+                                petCreature->AttackStop();
+                        }
+                        else
+                            charmInfo->SetCommandState(CommandStates(spellid));
                         break;
+                    }
+                    case COMMAND_FOLLOW:                        // spellid=1792  // FOLLOW
+                    {
+                        if (petUnit->HasAuraType(SPELL_AURA_MOD_CHARM))
+                        {
+                            Creature* petCreature = ((Creature*)petUnit);
+                            if (!petUnit->hasUnitState(UNIT_STAT_CONTROLLED))
+                            {
+                                petCreature->StopMoving();
+                                petCreature->GetMotionMaster()->Clear();
+                                petCreature->SetIsRetreating(true);
+                            }
+                            petCreature->AttackStop(true, true);
+                            petCreature->SetStayPosition();
+                            petCreature->SetSpellOpener();
+                            charmInfo->SetCommandState(COMMAND_FOLLOW);
+                        }       
+                        else
+                            charmInfo->SetCommandState(CommandStates(spellid));
+                        break;
+                    }                        
                     case COMMAND_ATTACK:
                     {
                         Unit* targetUnit = targetGuid ? _player->GetMap()->GetUnit(targetGuid) : nullptr;
@@ -103,9 +141,14 @@ void WorldSession::HandlePetAction(WorldPacket& recv_data)
                         {
                             _player->SetInCombatState(true, targetUnit);
 
-                            // This is true if pet has no target or has target but targets differs.
+                            // This is true if pet has no target or has target but targets differs.                                 
                             if (petUnit->getVictim() != targetUnit)
-                                petUnit->Attack(targetUnit, true);
+                            {
+                                if (petUnit->HasAuraType(SPELL_AURA_MOD_CHARM))
+                                    ((Creature*)petUnit)->AI()->AttackStart(targetUnit);
+                                else
+                                    petUnit->Attack(targetUnit, true);
+                            }
                         }
                         break;
                     }
@@ -151,7 +194,7 @@ void WorldSession::HandlePetAction(WorldPacket& recv_data)
 
                 petUnit->clearUnitState(UNIT_STAT_MOVING);
 
-                Spell* spell = CreateSpell(petUnit, spellInfo, false);
+                Spell* spell = new Spell(petUnit, spellInfo, false);
 
                 SpellCastResult result = spell->CheckPetCast(unit_target);
 

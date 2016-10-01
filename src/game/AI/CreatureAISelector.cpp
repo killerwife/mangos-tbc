@@ -53,6 +53,8 @@ namespace FactorySelector
             else                            // For guardians and creature pets in general
                 ai_factory = ai_registry.GetRegistryItem("GuardianAI");
         }
+        else if(creature->isCharmed()) // for charmed creatures
+            ai_factory = ai_registry.GetRegistryItem("PetAI");
         else if (creature->IsTotem())
             ai_factory = ai_registry.GetRegistryItem("TotemAI");
         else if (!ainame.empty())           // select by script name

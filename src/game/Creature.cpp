@@ -136,7 +136,9 @@ Creature::Creature(CreatureSubtype subtype) : Unit(),
     m_AlreadyCallAssistance(false), m_AlreadySearchedAssistance(false),
     m_AI_locked(false), m_isDeadByDefault(false), m_temporaryFactionFlags(TEMPFACTION_NONE),
     m_meleeDamageSchoolMask(SPELL_SCHOOL_MASK_NORMAL), m_originalEntry(0),
-    m_creatureInfo(nullptr)
+    m_creatureInfo(nullptr), m_retreating(false),
+    m_stayPosSet(false), m_stayPosX(0), m_stayPosY(0), m_stayPosZ(0), m_stayPosO(0),
+    m_opener(0), m_openerMinRange(0), m_openerMaxRange(0)
 {
     m_regenTimer = 200;
     m_valuesCount = UNIT_END;
@@ -2929,4 +2931,24 @@ bool Creature::IsTappedBy(Player* plr) const
         return false;
     }
     return false;
+}
+
+void Creature::SetStayPosition(bool stay)
+{
+    if (stay)
+    {
+        m_stayPosX = GetPositionX();
+        m_stayPosY = GetPositionY();
+        m_stayPosZ = GetPositionZ();
+        m_stayPosO = GetOrientation();
+    }
+    else
+    {
+        m_stayPosX = 0;
+        m_stayPosY = 0;
+        m_stayPosZ = 0;
+        m_stayPosO = 0;
+    }
+
+    m_stayPosSet = stay;
 }

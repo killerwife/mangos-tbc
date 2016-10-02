@@ -3860,7 +3860,8 @@ bool Spell::DoSummonPet(SpellEffectIndex eff_idx)
             spawnCreature->SetPvP(true);
 
         ((Player*)m_caster)->PetSpellInitialize();
-        spawnCreature->SavePetToDB(PET_SAVE_AS_CURRENT);
+        if(m_caster->getClass() != CLASS_PRIEST)
+            spawnCreature->SavePetToDB(PET_SAVE_AS_CURRENT);
     }
     return true;
 }

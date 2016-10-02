@@ -3774,7 +3774,7 @@ bool Spell::DoSummonPet(SpellEffectIndex eff_idx)
     {
         // Load pet from db; if any to load
         if (m_caster->getClass() != CLASS_PRIEST
-            && spawnCreature->LoadPetFromDB((Player*)m_caster, pet_entry))
+            && spawnCreature->LoadPetFromDB((Player*)m_caster, pet_entry, 0, false, true))
         {
             spawnCreature->SetHealth(spawnCreature->GetMaxHealth());
             spawnCreature->SetPower(POWER_MANA, spawnCreature->GetMaxPower(POWER_MANA));

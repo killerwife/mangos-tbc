@@ -835,14 +835,12 @@ uint32 Unit::DealDamage(Unit* pVictim, uint32 damage, CleanDamage const* cleanDa
 
         pVictim->ModifyHealth(- (int32)damage);
 
-        if (damagetype != DOT)
+        if (!getVictim())
         {
-            if (!getVictim())
-            {
-                // if not have main target then attack state with target (including AI call)
-                // start melee attacks only after melee hit
+            // if not have main target then attack state with target (including AI call)
+            // start melee attacks only after melee hit
+            if (!GetTypeId() == TYPEID_UNIT)
                 Attack(pVictim, (damagetype == DIRECT_DAMAGE));
-            }
 
             // if damage pVictim call AI reaction
             pVictim->AttackedBy(this);

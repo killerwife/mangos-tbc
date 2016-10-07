@@ -3392,13 +3392,15 @@ void Aura::HandleModCharm(bool apply, bool Real)
     if (!caster)
         return;
 
+    bool isTakeControlCharm = GetId() == 30019 || GetId() == 39219;
+
     if (apply)
     {
         if (caster->GetTypeId() == TYPEID_PLAYER)
         {
             //remove any existing charm just in case
             caster->Uncharm();
- 
+
             //pets should be removed when possesing a target if somehow check was bypassed
             ((Player*)caster)->UnsummonPetIfAny();
         }
@@ -3408,7 +3410,11 @@ void Aura::HandleModCharm(bool apply, bool Real)
         target->RemoveSpellsCausingAura(SPELL_AURA_MOD_POSSESS, GetHolder());
 
         target->SetCharmerGuid(GetCasterGuid());
-        target->setFaction(caster->getFaction());
+
+        // Karazhan posess override
+        if (GetId() != 30019)
+            target->setFaction(caster->getFaction());
+
         target->CastStop(target == caster ? GetId() : 0);
         caster->SetCharm(target);
 
@@ -3418,10 +3424,20 @@ void Aura::HandleModCharm(bool apply, bool Real)
 
         if (target->GetTypeId() == TYPEID_UNIT)
         {
-            ((Creature*)target)->AIM_Initialize();
+            // Karazhan posess override
+            if (!isTakeControlCharm)
+                ((Creature*)target)->AIM_Initialize();
+
             CharmInfo* charmInfo = target->InitCharmInfo(target);
-            charmInfo->InitCharmCreateSpells();
-            charmInfo->SetReactState(REACT_DEFENSIVE);
+
+            // Karazhan posess override
+            if (!isTakeControlCharm)
+                charmInfo->InitCharmCreateSpells();
+            else
+                charmInfo->InitPossessCreateSpells(GetId());
+
+            if (!isTakeControlCharm)
+                charmInfo->SetReactState(REACT_DEFENSIVE);
 
             if (caster->GetTypeId() == TYPEID_PLAYER && caster->getClass() == CLASS_WARLOCK)
             {
@@ -3493,11 +3509,12 @@ void Aura::HandleModCharm(bool apply, bool Real)
         target->DeleteThreatList();
         target->getHostileRefManager().deleteReferences();
 
-        if (target->GetTypeId() == TYPEID_UNIT)
-        {
-            ((Creature*)target)->AIM_Initialize();
-            target->AttackedBy(caster);
-        }
+        if (!isTakeControlCharm)
+            if (target->GetTypeId() == TYPEID_UNIT)
+            {
+                ((Creature*)target)->AIM_Initialize();
+                target->AttackedBy(caster);
+            }
     }
 }
 

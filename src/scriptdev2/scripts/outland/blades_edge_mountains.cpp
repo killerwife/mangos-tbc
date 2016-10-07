@@ -980,6 +980,255 @@ bool EffectScriptEffectCreature_spell_diminution_powder(Unit* pCaster, uint32 ui
     return false;
 }
 
+enum
+{
+    SPELL_DEATHS_DOOR_FEL_CANNON = 39219,
+    SPELL_ANTI_DEMON_FLAME_THROWER = 39222,
+    SPELL_ARTILLERY_ON_THE_WARP_GATE = 39221,
+    SPELL_FEL_CANNON_BLAST = 36242,
+    SPELL_UNSTABLE_FEL_IMP_TRANSFORM = 39227, // cast in acid
+    SPELL_UNSTABLE_EXPLOSION = 39266, // cast in acid
+
+    SPELL_GO_SMALL_FIRE = 49910, // serverside spells for spawning GOs
+    SPELL_GO_SMOKE = 49911,
+    SPELL_GO_BIG_FIRE = 49912,
+
+    NPC_DEATHS_DOOR_FEL_CANNON = 22443,
+    NPC_DEATHS_DOOR_NORTH_WARP_GATE = 22471,
+    NPC_DEATHS_DOOR_SOUTH_WARP_GATE = 22472,
+    NPC_UNSTABLE_FEL_IMP = 22474,
+    NPC_DEATHS_DOOR_FEL_CANNON_TARGET_BUNNY = 22495,
+    NPC_WARP_GATE_SHIELD = 23116, // not sure about this one
+    NPC_DEATHS_DOOR_EXPLOSION_BUNNY = 22502,
+    NPC_NORTH_WARP_GATE_CREDIT = 22503,
+    NPC_SOUTH_WARP_GATE_CREDIT = 22504,
+
+    GO_SMALL_FIRE = 185317,
+    GO_SMOKE = 185318,
+    GO_BIG_FIRE = 185319
+};
+
+struct npc_fel_cannon : public Scripted_NoMovementAI
+{
+    npc_fel_cannon(Creature* pCreature) : Scripted_NoMovementAI(pCreature) { Reset(); }
+
+    uint32 m_uiCannonBlastTimer;
+
+    bool m_bMCed;
+
+    void Reset()
+    {
+        m_uiCannonBlastTimer = 1000;
+        m_bMCed = false;
+        m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+    }
+
+    void SpellHit(Unit* /*pCaster*/, const SpellEntry* pSpell) override
+    {
+        if (pSpell->Id == SPELL_DEATHS_DOOR_FEL_CANNON)
+        {
+            m_bMCed = true;
+            if (Creature* target = GetClosestCreatureWithEntry(m_creature, NPC_DEATHS_DOOR_FEL_CANNON_TARGET_BUNNY, 100.f))
+            {
+                m_creature->SetFacingToObject(target);
+                m_creature->FixateTarget(target);
+            }
+
+            m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+
+            m_creature->SetLeashingDisable(true);
+        }
+    }
+
+    void MoveInLineOfSight(Unit* pWho) override {} // disable changing facing of any kind
+
+    void EnterEvadeMode() override
+    {
+        if (!m_bMCed)
+        {
+            ScriptedAI::EnterEvadeMode();
+            m_creature->FixateTarget(nullptr);
+        }
+    }
+
+    void UpdateAI(const uint32 uiDiff)
+    {
+        if (m_bMCed && !m_creature->isCharmed())
+        {
+            ScriptedAI::EnterEvadeMode();
+            m_creature->FixateTarget(nullptr);
+            return;
+        }
+
+        if (!m_bMCed)
+        {
+            if (!m_creature->SelectHostileTarget() || !m_creature->getVictim())
+                return;
+
+            if (m_uiCannonBlastTimer <= uiDiff)
+            {
+                m_uiCannonBlastTimer = 2500;
+                m_creature->CastSpell(m_creature->getVictim(), SPELL_FEL_CANNON_BLAST, false);
+            }
+            else
+                m_uiCannonBlastTimer -= uiDiff;
+        }
+    }
+};
+
+CreatureAI* GetAI_npc_fel_cannon(Creature* pCreature)
+{
+    return new npc_fel_cannon(pCreature);
+}
+
+static float impSpawns[2][4] =
+{
+    { 2188.340f, 5476.629f, 155.069f, 5.259f }, // north
+    { 1981.730f, 5315.390f, 156.600f, 0.262f } // south
+};
+
+static float fireSpawns[14][3] =
+{
+    { 2199.255f,5474.860f,153.578f },
+    { 2185.102f,5470.938f,164.374f },
+    { 2185.104f,5484.197f,154.817f },
+    { 2188.340f, 5476.629f, 155.069f },
+    { 2194.513f,5481.483f,164.991f },
+    { 2178.581f,5477.184f, 157.264f },
+    { 2188.340f, 5476.629f, 155.069f },
+    { 1982.273f,5331.832f,153.952f },
+    { 1987.307f,5307.395f,169.677f },
+    { 1980.868f,8325.251f,169.290f },
+    { 1981.730f, 5315.390f, 156.600f },
+    { 1989.396f,5322.008f,155.384f },
+    { 1973.351f,5299.629f,155.395f },
+    { 1981.730f, 5315.390f, 156.600f }
+};
+
+struct npc_warp_gate : public Scripted_NoMovementAI
+{
+    npc_warp_gate(Creature* pCreature) : Scripted_NoMovementAI(pCreature) { Reset(); }
+
+    uint32 m_uiHitCounter;
+    uint32 m_uiSpawnImpTimer;
+
+    ObjectGuid m_guidFelCannon;
+    ObjectGuid m_guidSmoke;
+
+    std::vector<ObjectGuid> m_vImpGuids;
+
+    void Reset()
+    {
+        m_uiHitCounter = 0;
+        m_uiSpawnImpTimer = 0;
+
+        for (ObjectGuid& guid : m_vImpGuids)
+            if (Creature* imp = m_creature->GetMap()->GetCreature(guid))
+                imp->ForcedDespawn(100);
+
+        m_vImpGuids.clear();
+
+        m_guidSmoke = ObjectGuid();
+    }
+
+    void SpellHit(Unit* pCaster, const SpellEntry* pSpell) override
+    {
+        if (pSpell->Id == SPELL_ARTILLERY_ON_THE_WARP_GATE)
+        {
+            if (!m_uiHitCounter)
+                m_guidFelCannon = pCaster->GetObjectGuid();
+
+            uint32 spellId;
+
+            switch (m_uiHitCounter)
+            {
+                case 0:
+                case 1:
+                case 2:
+                case 4:
+                case 5:
+                {
+                    spellId = SPELL_GO_SMALL_FIRE;
+                    break;
+                }
+                case 3:
+                {
+                    spellId = SPELL_GO_SMOKE;
+                    break;
+                }
+                case 6:
+                {
+                    spellId = SPELL_GO_BIG_FIRE;
+                    if (GameObject* smoke = m_creature->GetMap()->GetGameObject(m_guidSmoke))
+                        smoke->AddObjectToRemoveList();
+                    if (Creature* cannon = m_creature->GetMap()->GetCreature(m_guidFelCannon))
+                    {
+                        if (Player* player = dynamic_cast<Player*>(cannon->GetCharmer()))
+                        {
+                            player->RewardPlayerAndGroupAtEvent(m_creature->GetEntry() == NPC_DEATHS_DOOR_NORTH_WARP_GATE ? NPC_NORTH_WARP_GATE_CREDIT : NPC_SOUTH_WARP_GATE_CREDIT, m_creature);
+                        }
+                    }
+                    break;
+                }
+            }
+            uint32 i = m_creature->GetEntry() - NPC_DEATHS_DOOR_NORTH_WARP_GATE;
+            m_creature->CastSpell(fireSpawns[i * 7 + m_uiHitCounter][0], fireSpawns[i * 7 + m_uiHitCounter][1], fireSpawns[i * 7 + m_uiHitCounter][2], spellId, true);
+
+            m_uiHitCounter++;
+
+            if (m_uiHitCounter == 7)
+                Reset();
+        }
+    }
+
+    void JustSummoned(GameObject* pGo) override
+    {
+        if (pGo->GetEntry() == GO_SMOKE)
+            m_guidSmoke = pGo->GetObjectGuid();
+    }
+
+    void JustSummoned(Creature* pSummoned) override
+    {
+        if (pSummoned->GetEntry() == NPC_UNSTABLE_FEL_IMP)
+        {
+            m_vImpGuids.push_back(pSummoned->GetObjectGuid());
+            pSummoned->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+            pSummoned->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_OOC_NOT_ATTACKABLE);
+            if (Creature* cannon = m_creature->GetMap()->GetCreature(m_guidFelCannon))
+            {
+                pSummoned->AI()->AttackStart(cannon);
+            }
+        }
+    }
+
+    void UpdateAI(const uint32 uiDiff)
+    {
+        if (m_uiHitCounter)
+        {
+            Creature* cannon = m_creature->GetMap()->GetCreature(m_guidFelCannon);
+            if (!cannon || !cannon->GetCharmer())
+            {
+                Reset();
+                return;
+            }
+
+            if (m_uiSpawnImpTimer <= uiDiff)
+            {
+                uint32 i = m_creature->GetEntry() - NPC_DEATHS_DOOR_NORTH_WARP_GATE;
+                if (m_creature->SummonCreature(NPC_UNSTABLE_FEL_IMP, impSpawns[i][0], impSpawns[i][1], impSpawns[i][2], impSpawns[i][3], TEMPSUMMON_TIMED_OOC_OR_DEAD_DESPAWN, 20000, true, true))
+                    m_uiSpawnImpTimer = 3000;
+            }
+            else
+                m_uiSpawnImpTimer -= uiDiff;
+        }
+    }
+};
+
+CreatureAI* GetAI_npc_warp_gate(Creature* pCreature)
+{
+    return new npc_warp_gate(pCreature);
+}
+
 void AddSC_blades_edge_mountains()
 {
     Script* pNewScript;
@@ -1015,5 +1264,15 @@ void AddSC_blades_edge_mountains()
     pNewScript->Name = "npc_bloodmaul_dire_wolf";
     pNewScript->GetAI = &GetAI_npc_bloodmaul_dire_wolf;
     pNewScript->pEffectScriptEffectNPC = &EffectScriptEffectCreature_spell_diminution_powder;
+    pNewScript->RegisterSelf();
+
+    pNewScript = new Script;
+    pNewScript->Name = "npc_fel_cannon";
+    pNewScript->GetAI = &GetAI_npc_fel_cannon;
+    pNewScript->RegisterSelf();
+
+    pNewScript = new Script;
+    pNewScript->Name = "npc_warp_gate";
+    pNewScript->GetAI = &GetAI_npc_warp_gate;
     pNewScript->RegisterSelf();
 }

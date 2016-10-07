@@ -1,18 +1,18 @@
 /* This file is part of the ScriptDev2 Project. See AUTHORS file for Copyright information
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
- */
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation; either version 2 of the License, or
+* (at your option) any later version.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*
+* You should have received a copy of the GNU General Public License
+* along with this program; if not, write to the Free Software
+* Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+*/
 
 /* ScriptData
 SDName: chess_event
@@ -226,7 +226,10 @@ struct npc_echo_of_medivhAI : public ScriptedAI
     void JustSummoned(Creature* pSummoned) override
     {
         if (pSummoned->GetEntry() == NPC_FURY_MEDIVH_VISUAL)
+        {
             pSummoned->CastSpell(pSummoned, SPELL_FURY_OF_MEDIVH_AURA, true);
+            uint32 spell = pSummoned->GetUInt32Value(UNIT_CREATED_BY_SPELL);
+        }
     }
 
     void UpdateAI(const uint32 uiDiff) override
@@ -237,10 +240,10 @@ struct npc_echo_of_medivhAI : public ScriptedAI
         if (m_uiCheatTimer < uiDiff)
         {
             DoCastSpellIfCan(m_creature, urand(0, 1) ? (m_pInstance->GetPlayerTeam() == ALLIANCE ? SPELL_HAND_OF_MEDIVH_HORDE : SPELL_HAND_OF_MEDIVH_ALLIANCE) :
-                                 (m_pInstance->GetPlayerTeam() == ALLIANCE ? SPELL_FURY_OF_MEDIVH_ALLIANCE : SPELL_FURY_OF_MEDIVH_HORDE));
+                (m_pInstance->GetPlayerTeam() == ALLIANCE ? SPELL_FURY_OF_MEDIVH_ALLIANCE : SPELL_FURY_OF_MEDIVH_HORDE));
 
             switch (urand(0, 2))
-        {
+            {
                 case 0: DoPlaySoundToSet(m_creature, SOUND_ID_CHEAT_1); break;
                 case 1: DoPlaySoundToSet(m_creature, SOUND_ID_CHEAT_2); break;
                 case 2: DoPlaySoundToSet(m_creature, SOUND_ID_CHEAT_3); break;
@@ -297,9 +300,9 @@ bool GossipSelect_npc_echo_of_medivh(Player* pPlayer, Creature* pCreature, uint3
 ## npc_chess_piece_generic
 ######*/
 
-struct npc_chess_piece_genericAI : public ScriptedAI
+struct npc_chess_piece_genericAI : public Scripted_NoMovementAI
 {
-    npc_chess_piece_genericAI(Creature* pCreature) : ScriptedAI(pCreature)
+    npc_chess_piece_genericAI(Creature* pCreature) : Scripted_NoMovementAI(pCreature)
     {
         m_pInstance = (instance_karazhan*)pCreature->GetInstanceData();
         Reset();
@@ -327,8 +330,8 @@ struct npc_chess_piece_genericAI : public ScriptedAI
         if (m_pInstance)
         {
             if ((m_pInstance->GetPlayerTeam() == ALLIANCE && m_creature->getFaction() == FACTION_ID_CHESS_ALLIANCE) ||
-                    (m_pInstance->GetPlayerTeam() == HORDE && m_creature->getFaction() == FACTION_ID_CHESS_HORDE) ||
-                    m_pInstance->GetData(TYPE_CHESS) == DONE)
+                (m_pInstance->GetPlayerTeam() == HORDE && m_creature->getFaction() == FACTION_ID_CHESS_HORDE) ||
+                m_pInstance->GetData(TYPE_CHESS) == DONE)
                 m_uiMoveCommandTimer = 0;
         }
     }
@@ -343,7 +346,13 @@ struct npc_chess_piece_genericAI : public ScriptedAI
         if (Creature* pSquare = m_creature->GetMap()->GetCreature(m_currentSquareGuid))
             pSquare->RemoveAllAuras();
 
+        if (Player* player = m_creature->GetMap()->GetPlayer(m_creature->GetCharmerGuid()))
+        {
+            player->RemoveAurasDueToSpell(SPELL_CONTROL_PIECE);
+        }
+
         // ToDo: remove corpse after 10 sec
+        m_creature->ForcedDespawn(10000);
     }
 
     void ReceiveAIEvent(AIEventType eventType, Creature* /*pSender*/, Unit* pInvoker, uint32 /*uiMiscValue*/) override
@@ -356,6 +365,7 @@ struct npc_chess_piece_genericAI : public ScriptedAI
                 pSquare->RemoveAllAuras();
 
             m_currentSquareGuid = pInvoker->GetObjectGuid();
+            m_fCurrentOrientation = m_creature->GetOrientation();
             m_uiMoveTimer = 2000;
         }
         // handle encounter start event
@@ -375,6 +385,8 @@ struct npc_chess_piece_genericAI : public ScriptedAI
             pInvoker->CastSpell(pInvoker, SPELL_DISABLE_SQUARE, true);
             pInvoker->CastSpell(pInvoker, SPELL_IS_SQUARE_USED, true);
         }
+        else if (eventType == AI_EVENT_CUSTOM_C)
+            m_fCurrentOrientation = m_creature->GetOrientation();
     }
 
     void MovementInform(uint32 uiMotionType, uint32 uiPointId) override
@@ -386,7 +398,10 @@ struct npc_chess_piece_genericAI : public ScriptedAI
         if (Unit* pTarget = GetTargetByType(TARGET_TYPE_RANDOM, 5.0f))
             DoCastSpellIfCan(pTarget, SPELL_CHANGE_FACING);
         else
+        {
             m_creature->SetFacingTo(m_fCurrentOrientation);
+        }
+
     }
 
     void SpellHit(Unit* pCaster, const SpellEntry* pSpell) override
@@ -493,7 +508,7 @@ struct npc_chess_piece_genericAI : public ScriptedAI
 
     void UpdateAI(const uint32 uiDiff) override
     {
-        if (!m_pInstance || m_pInstance->GetData(TYPE_CHESS) != IN_PROGRESS)
+        if (!m_pInstance || (m_pInstance->GetData(TYPE_CHESS) != IN_PROGRESS && m_pInstance->GetData(TYPE_CHESS) != SPECIAL))
             return;
 
         // issue move command
@@ -566,8 +581,8 @@ struct npc_chess_piece_genericAI : public ScriptedAI
                 m_uiMoveTimer -= uiDiff;
         }
 
-        if (!m_creature->SelectHostileTarget() || !m_creature->getVictim())
-            return;
+        /*if (!m_creature->SelectHostileTarget() || !m_creature->getVictim())
+        return;*/
     }
 };
 
@@ -604,7 +619,7 @@ bool EffectDummyCreature_npc_chess_generic(Unit* pCaster, uint32 uiSpellId, Spel
             pCaster->CastSpell(pCaster, SPELL_DISABLE_SQUARE, true);
             pCaster->CastSpell(pCaster, SPELL_IS_SQUARE_USED, true);
 
-            pCreatureTarget->CastSpell(pCreatureTarget, SPELL_MOVE_COOLDOWN, true);
+            pCreatureTarget->CastSpell(pCreatureTarget, SPELL_MOVE_COOLDOWN, false);
             pCreatureTarget->AI()->SendAIEvent(AI_EVENT_CUSTOM_A, pCaster, pCreatureTarget);
         }
 
@@ -638,7 +653,11 @@ bool EffectDummyCreature_npc_chess_generic(Unit* pCaster, uint32 uiSpellId, Spel
     else if (uiSpellId == SPELL_FACE_SQUARE && uiEffIndex == EFFECT_INDEX_0)
     {
         if (pCaster->GetTypeId() == TYPEID_UNIT)
+        {
+            pCreatureTarget->SetInFront(pCaster);         // set movementinfo orientation, needed for next movement if any
             pCreatureTarget->SetFacingToObject(pCaster);
+            pCreatureTarget->AI()->SendAIEvent(AI_EVENT_CUSTOM_C, pCaster, pCreatureTarget);
+        }
 
         return true;
     }
@@ -817,6 +836,8 @@ struct npc_warchief_blackhandAI : public npc_chess_piece_genericAI
         }
 
         m_pInstance->DoMoveChessPieceToSides(SPELL_TRANSFORM_BLACKHAND, FACTION_ID_CHESS_HORDE, true);
+
+        m_creature->ForcedDespawn(10000);
     }
 
     uint32 DoCastPrimarySpell() override

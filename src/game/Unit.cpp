@@ -5007,6 +5007,15 @@ bool Unit::IsHostileTo(Unit const* unit) const
     Unit const* tester = testerOwner ? testerOwner : this;
     Unit const* target = targetOwner ? targetOwner : unit;
 
+    if (this->HasAura(30019)) // karazhan chess, possibly need to stop using Owner overrides and use factionId
+    {
+        tester = this;
+    }
+    if (unit->HasAura(30019))
+    {
+        target = unit;
+    }
+
     // always non-hostile to target with common owner, or to owner/pet
     if (tester == target)
         return false;
@@ -5118,6 +5127,15 @@ bool Unit::IsFriendlyTo(Unit const* unit) const
 
     Unit const* tester = testerOwner ? testerOwner : this;
     Unit const* target = targetOwner ? targetOwner : unit;
+
+    if (this->HasAura(30019)) // karazhan chess, possibly need to stop using Owner overrides and use factionId
+    {
+        tester = this;
+    }
+    if (unit->HasAura(30019))
+    {
+        target = this;
+    }
 
     // always friendly to target with common owner, or to owner/pet
     if (tester == target)
@@ -5282,8 +5300,8 @@ bool Unit::Attack(Unit* victim, bool meleeAttack)
             ((Creature*)this)->SetCombatStartPosition(GetPositionX(), GetPositionY(), GetPositionZ());
     }
 
-    // Set our target if not chess piece controlled by player
-    if(!HasAura(30019))
+    // Set our target if not chess piece controlled by player and not channeling dont turn spell
+    if (!HasAura(30019) && !(m_currentSpells[CURRENT_CHANNELED_SPELL] && m_currentSpells[CURRENT_CHANNELED_SPELL]->m_spellInfo->ChannelInterruptFlags & CHANNEL_FLAG_TURNING))
         SetTargetGuid(victim->GetObjectGuid());
 
     if (meleeAttack)
@@ -7805,7 +7823,10 @@ bool Unit::SelectHostileTarget()
     {
         if (!hasUnitState(UNIT_STAT_STUNNED | UNIT_STAT_DIED))
         {
-            SetInFront(target);
+            // needs a much better check, seems to cause quite a bit of trouble
+            if (!HasAura(30019) && !(m_currentSpells[CURRENT_CHANNELED_SPELL] && m_currentSpells[CURRENT_CHANNELED_SPELL]->m_spellInfo->ChannelInterruptFlags & CHANNEL_FLAG_TURNING))
+                SetInFront(target);
+
             if (oldTarget != target)
                 ((Creature*)this)->AI()->AttackStart(target);
 

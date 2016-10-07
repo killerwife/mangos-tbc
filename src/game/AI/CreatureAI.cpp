@@ -33,7 +33,7 @@ CreatureAI::~CreatureAI()
 
 void CreatureAI::AttackedBy(Unit* attacker)
 {
-    if (!m_creature->getVictim())
+    if (!m_creature->getVictim() && !m_creature->HasAura(30019) && !(m_creature->GetCurrentSpell(CURRENT_CHANNELED_SPELL) && m_creature->GetCurrentSpell(CURRENT_CHANNELED_SPELL)->m_spellInfo->ChannelInterruptFlags & CHANNEL_FLAG_TURNING))
         AttackStart(attacker);
 }
 

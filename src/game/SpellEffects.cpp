@@ -2312,7 +2312,8 @@ void Spell::EffectDummy(SpellEffectIndex eff_idx)
                     float weaponSpeed = float(m_CastItem->GetProto()->Delay) / IN_MILLISECONDS;     
                     bonusDamage = m_caster->SpellBonusWithCoeffs(m_spellInfo, bonusDamage, 0, 0, SPELL_DIRECT_DAMAGE, false); // apply spell coeff
                     int32 totalDamage = (damage * 0.01 * weaponSpeed) + bonusDamage;
-
+                    if (Player* playerCaster = dynamic_cast<Player*>(m_caster))
+                        playerCaster->ApplySpellMod(m_spellInfo->Id, SPELLMOD_DAMAGE, totalDamage);
                     m_caster->CastCustomSpell(unitTarget, 10444, &totalDamage, nullptr, nullptr, true, m_CastItem);
                 }
                 else

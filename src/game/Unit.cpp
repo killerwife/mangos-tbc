@@ -1617,7 +1617,9 @@ void Unit::CalculateMeleeDamage(Unit* pVictim, CalcDamageInfo* damageInfo, Weapo
             }
 
             // calculate values
-            int32 diff = damageInfo->target->GetDefenseSkillValue() - GetWeaponSkillValue(damageInfo->attackType);
+            int32 attackerRating = GetWeaponSkillValue(damageInfo->attackType);
+            attackerRating = attackerRating > getLevel() * 5 ? getLevel() * 5 : attackerRating; // cap rating at level * 5, done in 2.0.1
+            int32 diff = damageInfo->target->GetDefenseSkillValue() - attackerRating;
             float lowEnd  = baseLowEnd - (0.05f * diff);
             float highEnd = baseHighEnd - (0.03f * diff);
 
@@ -2394,7 +2396,7 @@ MeleeHitOutcome Unit::RollMeleeOutcomeAgainst(const Unit* pVictim, WeaponAttackT
     if (miss_chance > 0)
     {
         tmp = miss_chance - skillBonus;
-        if (roll < (sum += tmp))
+        if (tmp > 0 && roll < (sum += tmp))
         {
             DEBUG_FILTER_LOG(LOG_FILTER_COMBAT, "RollMeleeOutcomeAgainst: MISS <%d, %d)", sum - tmp, tmp);
             return MELEE_HIT_MISS;
@@ -2420,7 +2422,7 @@ MeleeHitOutcome Unit::RollMeleeOutcomeAgainst(const Unit* pVictim, WeaponAttackT
         tmp += GetTotalAuraModifierByMiscValue(SPELL_AURA_MOD_COMBAT_RESULT_CHANCE, VICTIMSTATE_DODGE) * 100;
 
         // only players can't dodge if attacker is behind
-        if (!(from_behind && pVictim->GetTypeId() == TYPEID_PLAYER) && roll < (sum += tmp))
+        if (!(from_behind && pVictim->GetTypeId() == TYPEID_PLAYER) && tmp > 0 && roll < (sum += tmp))
         {
             DEBUG_FILTER_LOG(LOG_FILTER_COMBAT, "RollMeleeOutcomeAgainst: DODGE <%d, %d)", sum - tmp, tmp);
             return MELEE_HIT_DODGE;
@@ -2438,14 +2440,34 @@ MeleeHitOutcome Unit::RollMeleeOutcomeAgainst(const Unit* pVictim, WeaponAttackT
             if (GetTypeId() == TYPEID_PLAYER)
                 tmp -= int32(((Player*)this)->GetExpertiseDodgeOrParryReduction(attType) * 100);
 
-            if (roll < (sum += tmp) && (pVictim->GetTypeId() == TYPEID_PLAYER
+            if (tmp > 0 && roll < (sum += tmp) && (pVictim->GetTypeId() == TYPEID_PLAYER
                 || !(((Creature*)pVictim)->GetCreatureInfo()->ExtraFlags & CREATURE_EXTRA_FLAG_NO_PARRY)))
             {
                 DEBUG_FILTER_LOG(LOG_FILTER_COMBAT, "RollMeleeOutcomeAgainst: PARRY <%d, %d)", sum - tmp, tmp);
                 return MELEE_HIT_PARRY;
             }
-        }
+        }        
+    }
 
+    // Max 40% chance to score a glancing blow against mobs that are higher level
+    // (can do only players and pets and not with ranged weapon)
+    if ((GetTypeId() == TYPEID_PLAYER || ((Creature*)this)->IsPet())
+        && pVictim->GetTypeId() != TYPEID_PLAYER && !((Creature*)pVictim)->IsPet()
+        && getLevel() < pVictim->getLevel() && attType != RANGED_ATTACK && !SpellCasted)
+    {
+        tmp = 1000 + ((attackerWeaponSkill < attackerMaxSkillValueForLevel)
+            ? (victimDefenseSkill - attackerWeaponSkill) * 100
+            : (victimDefenseSkill - attackerMaxSkillValueForLevel) * 100);
+
+        if (tmp > 0 && roll < (tmp = (tmp > 4000) ? 4000 : tmp))
+        {
+            DEBUG_FILTER_LOG(LOG_FILTER_COMBAT, "RollMeleeOutcomeAgainst: GLANCING <%d, %d)", sum - tmp, tmp);
+            return MELEE_HIT_GLANCING;
+        }
+    }
+
+    if (!from_behind)
+    {
         if (block_chance > 0)
         {
             tmp = block_chance - skillBonus;
@@ -2468,26 +2490,8 @@ MeleeHitOutcome Unit::RollMeleeOutcomeAgainst(const Unit* pVictim, WeaponAttackT
         }
     }
 
-    // Max 40% chance to score a glancing blow against mobs that are higher level
-    // (can do only players and pets and not with ranged weapon)
-    if ((GetTypeId() == TYPEID_PLAYER || ((Creature*)this)->IsPet())
-        && pVictim->GetTypeId() != TYPEID_PLAYER && !((Creature*)pVictim)->IsPet()
-        && getLevel() < pVictim->getLevel() && attType != RANGED_ATTACK && !SpellCasted)
-    {
-        tmp = 1000 + ((attackerWeaponSkill < attackerMaxSkillValueForLevel)
-            ? (victimDefenseSkill - attackerWeaponSkill) * 200
-            : (victimDefenseSkill - attackerMaxSkillValueForLevel) * 200);
-
-        if (roll < (tmp = (tmp > 4000) ? 4000 : tmp))
-        {
-            DEBUG_FILTER_LOG(LOG_FILTER_COMBAT, "RollMeleeOutcomeAgainst: GLANCING <%d, %d)", sum - tmp, tmp);
-            return MELEE_HIT_GLANCING;
-        }
-    }
-
     if (crit_chance > 0)
     {
-        tmp = crit_chance + skillBonus;
         if (roll < (sum += tmp))
         {
             DEBUG_FILTER_LOG(LOG_FILTER_COMBAT, "RollMeleeOutcomeAgainst: CRIT <%d, %d)", sum - tmp, tmp);
@@ -2501,7 +2505,8 @@ MeleeHitOutcome Unit::RollMeleeOutcomeAgainst(const Unit* pVictim, WeaponAttackT
         // having defense above your maximum (from items, talents etc.) has no effect
         // mob's level * 5 - player's current defense skill - add 2% chance per lacking skill point, min. is 15%
         tmp = (victimDefenseSkill < victimMaxSkillValueForLevel) ? victimDefenseSkill : victimMaxSkillValueForLevel;
-        if (roll < (tmp = (((attackerMaxSkillValueForLevel - tmp) * 200) - 1500)))
+        tmp = (((attackerMaxSkillValueForLevel - tmp) * 200) - 1500);
+        if (tmp > 0 && roll < (sum += tmp))
         {
             uint32 typeId = GetTypeId();
             if ((typeId == TYPEID_UNIT && !(GetOwnerGuid() && GetOwner()->GetTypeId() == TYPEID_PLAYER)

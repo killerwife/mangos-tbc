@@ -1171,6 +1171,32 @@ void Spell::DoSpellHitOnUnit(Unit* unit, uint32 effectMask, bool isReflected)
     {
         m_spellAuraHolder = CreateSpellAuraHolder(m_spellInfo, unit, realCaster, m_CastItem, m_triggeredBySpellInfo);
         m_spellAuraHolder->setDiminishGroup(m_diminishGroup);
+        int32 duration = m_spellAuraHolder->GetAuraMaxDuration();
+        int32 originalDuration = duration;
+
+        if (duration > 0)
+        {
+            unit->ApplyDiminishingToDuration(m_diminishGroup, duration, m_caster, m_diminishLevel, isReflected);
+
+            // Fully diminished
+            if (duration == 0)
+            {
+                delete m_spellAuraHolder;
+                m_spellAuraHolder = nullptr;
+                return;
+            }
+        }
+
+        duration = unit->CalculateAuraDuration(m_spellInfo, effectMask, duration, m_caster);
+
+        if (duration != originalDuration)
+        {
+            m_spellAuraHolder->SetAuraMaxDuration(duration);
+            m_spellAuraHolder->SetAuraDuration(duration);
+        }
+
+        if(!unit->CheckSpellAuraHolderCondition(m_spellAuraHolder))
+            m_spellAuraHolder = nullptr;
     }
     else
         m_spellAuraHolder = nullptr;
@@ -1190,6 +1216,20 @@ void Spell::DoSpellHitOnUnit(Unit* unit, uint32 effectMask, bool isReflected)
                         modOwner->ApplySpellMod(m_spellInfo->Id, SPELLMOD_EFFECT_PAST_FIRST, multiplier, this);
                 m_damageMultipliers[effectNumber] *= multiplier;
             }
+        }
+    }
+
+    if (m_spellAuraHolder)
+    {
+        // normally shouldn't happen
+        if (!m_spellAuraHolder->IsEmptyHolder())
+        {
+            unit->AddSpellAuraHolderWithoutCheck(m_spellAuraHolder);
+        }
+        else
+        {
+            delete m_spellAuraHolder;
+            m_spellAuraHolder = nullptr;
         }
     }
 
@@ -1241,45 +1281,6 @@ void Spell::DoSpellHitOnUnit(Unit* unit, uint32 effectMask, bool isReflected)
                 realCaster->SetInCombatState(unit->GetCombatTimer() > 0, unit);
                 unit->getHostileRefManager().threatAssist(realCaster, 0.0f, m_spellInfo, false);
             }
-        }
-    }
-
-    // now apply all created auras
-    if (m_spellAuraHolder)
-    {
-        // normally shouldn't happen
-        if (!m_spellAuraHolder->IsEmptyHolder())
-        {
-            int32 duration = m_spellAuraHolder->GetAuraMaxDuration();
-            int32 originalDuration = duration;
-
-            if (duration > 0)
-            {
-                unit->ApplyDiminishingToDuration(m_diminishGroup, duration, m_caster, m_diminishLevel, isReflected);
-
-                // Fully diminished
-                if (duration == 0)
-                {
-                    delete m_spellAuraHolder;
-                    m_spellAuraHolder = nullptr;
-                    return;
-                }
-            }
-
-            duration = unit->CalculateAuraDuration(m_spellInfo, effectMask, duration, m_caster);
-
-            if (duration != originalDuration)
-            {
-                m_spellAuraHolder->SetAuraMaxDuration(duration);
-                m_spellAuraHolder->SetAuraDuration(duration);
-            }
-
-            unit->AddSpellAuraHolder(m_spellAuraHolder);
-        }
-        else
-        {
-            delete m_spellAuraHolder;
-            m_spellAuraHolder = nullptr;
         }
     }
 }

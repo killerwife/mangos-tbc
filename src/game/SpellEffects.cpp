@@ -2818,8 +2818,12 @@ void Spell::EffectApplyAura(SpellEffectIndex eff_idx)
 
     DEBUG_FILTER_LOG(LOG_FILTER_SPELL_CAST, "Spell: Aura is: %u", m_spellInfo->EffectApplyAuraName[eff_idx]);
 
-    Aura* aur = CreateAura(m_spellInfo, eff_idx, &m_currentBasePoints[eff_idx], m_spellAuraHolder, unitTarget, caster, m_CastItem);
-    m_spellAuraHolder->AddAura(aur, eff_idx);
+    if (m_spellAuraHolder)
+    {
+        Aura* aur = CreateAura(m_spellInfo, eff_idx, &m_currentBasePoints[eff_idx], m_spellAuraHolder, unitTarget, caster, m_CastItem);
+        m_spellAuraHolder->AddAura(aur, eff_idx);
+        aur->ApplyModifier(true, true);
+    }
 }
 
 void Spell::EffectUnlearnSpecialization(SpellEffectIndex eff_idx)
@@ -3534,8 +3538,12 @@ void Spell::EffectApplyAreaAura(SpellEffectIndex eff_idx)
     if (!unitTarget->isAlive())
         return;
 
-    AreaAura* Aur = new AreaAura(m_spellInfo, eff_idx, &m_currentBasePoints[eff_idx], m_spellAuraHolder, unitTarget, m_caster, m_CastItem);
-    m_spellAuraHolder->AddAura(Aur, eff_idx);
+    if (m_spellAuraHolder)
+    {
+        AreaAura* aur = new AreaAura(m_spellInfo, eff_idx, &m_currentBasePoints[eff_idx], m_spellAuraHolder, unitTarget, m_caster, m_CastItem);
+        m_spellAuraHolder->AddAura(aur, eff_idx);
+        aur->ApplyModifier(true, true);
+    }
 }
 
 void Spell::EffectSummonType(SpellEffectIndex eff_idx)

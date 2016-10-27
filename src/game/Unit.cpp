@@ -4017,6 +4017,197 @@ bool Unit::AddSpellAuraHolder(SpellAuraHolder* holder)
     return true;
 }
 
+bool Unit::CheckSpellAuraHolderCondition(SpellAuraHolder* holder)
+{
+    SpellEntry const* aurSpellInfo = holder->GetSpellProto();
+
+    // ghost spell check, allow apply any auras at player loading in ghost mode (will be cleanup after load)
+    if (!isAlive() && !IsDeathPersistentSpell(aurSpellInfo) &&
+        !IsDeathOnlySpell(aurSpellInfo) && !aurSpellInfo->HasAttribute(SPELL_ATTR_EX2_CAN_TARGET_DEAD) &&
+        (GetTypeId() != TYPEID_PLAYER || !((Player*)this)->GetSession()->PlayerLoading()))
+    {
+        delete holder;
+        return false;
+    }
+
+    if (holder->GetTarget() != this)
+    {
+        sLog.outError("Holder (spell %u) add to spell aura holder list of %s (lowguid: %u) but spell aura holder target is %s (lowguid: %u)",
+            holder->GetId(), (GetTypeId() == TYPEID_PLAYER ? "player" : "creature"), GetGUIDLow(),
+            (holder->GetTarget()->GetTypeId() == TYPEID_PLAYER ? "player" : "creature"), holder->GetTarget()->GetGUIDLow());
+        delete holder;
+        return false;
+    }
+
+    // passive can stack with themselves any number of times
+    if (!IsPassiveSpell(aurSpellInfo) || HasAreaAuraEffect(aurSpellInfo))
+    {
+        SpellAuraHolderBounds spair = GetSpellAuraHolderBounds(aurSpellInfo->Id);
+
+        // take out same spell
+        for (SpellAuraHolderMap::iterator iter = spair.first; iter != spair.second; ++iter)
+        {
+            SpellAuraHolder* foundHolder = iter->second;
+            if (foundHolder->GetCasterGuid() == holder->GetCasterGuid())
+            {
+                // Aura can stack on self -> Stack it;
+                if (aurSpellInfo->StackAmount)
+                {
+                    // can be created with >1 stack by some spell mods
+                    foundHolder->ModStackAmount(holder->GetStackAmount());
+                    delete holder;
+                    return false;
+                }
+
+                // Check for coexisting Weapon-proced Auras
+                if (holder->IsWeaponBuffCoexistableWith(foundHolder))
+                    continue;
+
+                // Carry over removed Aura's remaining damage if Aura still has ticks remaining
+                if (foundHolder->GetSpellProto()->HasAttribute(SPELL_ATTR_EX4_STACK_DOT_MODIFIER))
+                {
+                    for (int32 i = 0; i < MAX_EFFECT_INDEX; ++i)
+                    {
+                        if (Aura* aur = holder->GetAuraByEffectIndex(SpellEffectIndex(i)))
+                        {
+                            // m_auraname can be modified to SPELL_AURA_NONE for area auras, use original
+                            AuraType aurNameReal = AuraType(aurSpellInfo->EffectApplyAuraName[i]);
+
+                            if (aurNameReal == SPELL_AURA_PERIODIC_DAMAGE && aur->GetAuraDuration() > 0)
+                            {
+                                if (Aura* existing = foundHolder->GetAuraByEffectIndex(SpellEffectIndex(i)))
+                                {
+                                    int32 remainingTicks = existing->GetAuraMaxTicks() - existing->GetAuraTicks();
+                                    int32 remainingDamage = existing->GetModifier()->m_amount * remainingTicks;
+
+                                    aur->GetModifier()->m_amount += int32(remainingDamage / aur->GetAuraMaxTicks());
+                                }
+                                else
+                                    DEBUG_LOG("Holder (spell %u) on target (lowguid: %u) doesn't have aura on effect index %u. skipping.", aurSpellInfo->Id, holder->GetTarget()->GetGUIDLow(), i);
+                            }
+                        }
+                    }
+                }
+
+                // can be only single
+                RemoveSpellAuraHolder(foundHolder, AURA_REMOVE_BY_STACK);
+                break;
+            }
+            else
+            {
+                //any stackable case with amount should mod existing stack amount
+                if (aurSpellInfo->StackAmount && aurSpellInfo->rangeIndex != SPELL_RANGE_IDX_SELF_ONLY && !aurSpellInfo->HasAttribute(SPELL_ATTR_EX3_STACK_FOR_DIFF_CASTERS))
+                {
+                    foundHolder->ModStackAmount(holder->GetStackAmount());
+                    delete holder;
+                    return false;
+                }
+                else
+                {
+                    if (!IsStackableSpell(holder->GetSpellProto(), foundHolder->GetSpellProto(), holder->GetTarget()))
+                    {
+                        RemoveSpellAuraHolder(foundHolder, AURA_REMOVE_BY_STACK);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    // normal spell or passive auras not stackable with other ranks
+    if (!IsPassiveSpell(aurSpellInfo) || !IsPassiveSpellStackableWithRanks(aurSpellInfo))
+    {
+        if (!RemoveNoStackAurasDueToAuraHolder(holder))
+        {
+            delete holder;
+            return false;                                   // couldn't remove conflicting aura with higher rank
+        }
+    }
+
+    // update tracked aura targets list (before aura add to aura list, to prevent unexpected remove recently added aura)
+    if (TrackedAuraType trackedType = holder->GetTrackedAuraType())
+    {
+        if (Unit* caster = holder->GetCaster())             // caster not in world
+        {
+            // Only compare TrackedAuras of same tracking type
+            TrackedAuraTargetMap& scTargets = caster->GetTrackedAuraTargets(trackedType);
+            for (TrackedAuraTargetMap::iterator itr = scTargets.begin(); itr != scTargets.end();)
+            {
+                SpellEntry const* itr_spellEntry = itr->first;
+                ObjectGuid itr_targetGuid = itr->second;    // Target on whom the tracked aura is
+
+                if (itr_targetGuid == GetObjectGuid())      // Note: I don't understand this check (based on old aura concepts, kept when adding holders)
+                {
+                    ++itr;
+                    continue;
+                }
+
+                bool removed = false;
+                switch (trackedType)
+                {
+                    case TRACK_AURA_TYPE_SINGLE_TARGET:
+                        if (IsSingleTargetSpells(itr_spellEntry, aurSpellInfo))
+                        {
+                            removed = true;
+                            // remove from target if target found
+                            if (Unit* itr_target = GetMap()->GetUnit(itr_targetGuid))
+                                itr_target->RemoveAurasDueToSpell(itr_spellEntry->Id); // TODO AURA_REMOVE_BY_TRACKING (might require additional work elsewhere)
+                            else                            // Normally the tracking will be removed by the AuraRemoval
+                                scTargets.erase(itr);
+                        }
+                        break;
+                    case TRACK_AURA_TYPE_NOT_TRACKED:       // These two can never happen
+                    case MAX_TRACKED_AURA_TYPES:
+                        MANGOS_ASSERT(false);
+                        break;
+                }
+
+                if (removed)
+                {
+                    itr = scTargets.begin();                // list can be chnaged at remove aura
+                    continue;
+                }
+
+                ++itr;
+            }
+
+            // TODO remove this switch after confirming that we dont need other cases
+            switch (trackedType)
+            {
+                case TRACK_AURA_TYPE_SINGLE_TARGET:         // Register spell holder single target
+                    scTargets[aurSpellInfo] = GetObjectGuid();
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+
+    return true;
+}
+
+bool Unit::AddSpellAuraHolderWithoutCheck(SpellAuraHolder* holder)
+{
+    // add aura, register in lists and arrays
+    holder->_AddSpellAuraHolder();
+    m_spellAuraHolders.insert(SpellAuraHolderMap::value_type(holder->GetId(), holder));
+
+    for (int32 i = 0; i < MAX_EFFECT_INDEX; ++i)
+        if (Aura* aur = holder->GetAuraByEffectIndex(SpellEffectIndex(i)))
+            AddAuraToModList(aur);
+
+    //holder->ApplyAuraModifiers(true, true);                 // This is the place where auras are actually applied onto the target
+    DEBUG_FILTER_LOG(LOG_FILTER_SPELL_CAST, "Holder of spell %u now is in use", holder->GetId());
+
+    // if aura deleted before boosts apply ignore
+    // this can be possible it it removed indirectly by triggered spell effect at ApplyModifier
+    if (holder->IsDeleted())
+        return false;
+
+    holder->HandleSpellSpecificBoosts(true);
+    return true;
+}
+
 void Unit::AddAuraToModList(Aura* aura)
 {
     if (aura->GetModifier()->m_auraname < TOTAL_AURAS)

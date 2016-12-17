@@ -1327,6 +1327,9 @@ bool DungeonMap::Add(Player* player)
     }
     else
     {
+        if (!player->CanEnterNewInstance(GetInstanceId()))
+            return false;
+
         Group* pGroup = player->GetGroup();
         if (pGroup)
         {
@@ -1405,6 +1408,8 @@ bool DungeonMap::Add(Player* player)
     m_unloadTimer = 0;
     m_resetAfterUnload = false;
     m_unloadWhenEmpty = false;
+
+    player->OnEnteringInstance(GetInstanceId());
 
     // this will acquire the same mutex so it cannot be in the previous block
     Map::Add(player);

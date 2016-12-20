@@ -142,7 +142,8 @@ CanCastResult CreatureAI::DoCastSpellIfCan(Unit* pTarget, uint32 uiSpell, uint32
             // Creature should stop wielding weapon while casting
             pCaster->SetSheath(SHEATH_STATE_UNARMED);
 
-            uint32 flags = (uiCastFlags & CAST_TRIGGERED ? TRIGGERED_OLD_TRIGGERED : TRIGGERED_NONE) | (uiCastFlags & CAST_IGNORE_UNSELECTABLE_TARGET ? TRIGGERED_IGNORE_UNSELECTABLE_FLAG : TRIGGERED_NONE);
+            uint32 flags = (uiCastFlags & CAST_TRIGGERED ? TRIGGERED_OLD_TRIGGERED : TRIGGERED_NONE) | (uiCastFlags & CAST_IGNORE_UNSELECTABLE_TARGET ? TRIGGERED_IGNORE_UNSELECTABLE_FLAG : TRIGGERED_NONE)
+                | (uiCastFlags & CAST_IGNORE_LOS ? TRIGGERED_IGNORE_LINE_OF_SIGHT : TRIGGERED_NONE);
 
             pCaster->CastSpell(pTarget, pSpell, flags, nullptr, nullptr, uiOriginalCasterGUID);
             return CAST_OK;

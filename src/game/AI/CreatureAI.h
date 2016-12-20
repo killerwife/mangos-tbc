@@ -56,6 +56,7 @@ enum CastFlags
     CAST_FORCE_TARGET_SELF      = 0x10,                     // Forces the target to cast this spell on itself
     CAST_AURA_NOT_PRESENT       = 0x20,                     // Only casts the spell if the target does not have an aura from the spell
     CAST_IGNORE_UNSELECTABLE_TARGET = 0x40,                 // Can target UNIT_FLAG_NOT_SELECTABLE - Needed in some scripts
+    CAST_IGNORE_LOS             = 0x100,                    // Ignores LOS checks
 };
 
 enum AIEventType

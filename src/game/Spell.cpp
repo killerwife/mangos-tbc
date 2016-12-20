@@ -320,7 +320,7 @@ Spell::Spell(Unit* caster, SpellEntry const* info, uint32 triggeredFlags, Object
 
     m_ignoreHitResult = false;
     m_ignoreUnselectableTarget = m_IsTriggeredSpell;
-    m_ignoreLineOfSight = false;
+    m_ignoreLineOfSight = m_IsTriggeredSpell;
 
     // determine reflection
     m_canReflect = false;
@@ -4383,7 +4383,7 @@ SpellCastResult Spell::CheckCast(bool strict)
                 }
             }
 
-            if (!m_IsTriggeredSpell && VMAP::VMapFactory::checkSpellForLoS(m_spellInfo->Id) && !m_caster->IsWithinLOSInMap(target))
+            if (!m_ignoreLineOfSight && VMAP::VMapFactory::checkSpellForLoS(m_spellInfo->Id) && !m_caster->IsWithinLOSInMap(target))
                 return SPELL_FAILED_LINE_OF_SIGHT;
 
             if (m_caster->GetTypeId() == TYPEID_PLAYER)

@@ -22,7 +22,7 @@
 #include "GridNotifiers.h"
 #include "GridNotifiersImpl.h"
 
-GuardianAI::GuardianAI(Creature* c) : CreatureEventAI(c)
+GuardianAI::GuardianAI(Creature* c) : CreatureEventAI(c), m_reInitFollow(false)
 {
     Unit* owner = c->GetOwner();
     MANGOS_ASSERT(owner);
@@ -46,6 +46,12 @@ void GuardianAI::UpdateAI(const uint32 diff)
 
     if (!owner)
         return;
+
+    if (m_reInitFollow)
+    {
+        m_creature->GetMotionMaster()->MoveFollow(owner, PET_FOLLOW_DIST, PET_FOLLOW_ANGLE);
+        m_reInitFollow = false;
+    }
 
     switch (m_reactState)
     {
@@ -176,7 +182,7 @@ void GuardianAI::CombatStop()
 
     // only alive creatures that are not on transport can return to home position
     if (m_creature->isAlive() && !m_creature->IsBoarded())
-        m_creature->GetMotionMaster()->MoveFollow(owner, PET_FOLLOW_DIST, PET_FOLLOW_ANGLE);
+        m_reInitFollow = true;
 }
 
 void GuardianAI::EnterEvadeMode()

@@ -333,8 +333,6 @@ bool Pet::LoadPetFromDB(Player* owner, uint32 petentry /*= 0*/, uint32 petnumber
     m_resetTalentsCost = fields[19].GetUInt32();
     m_resetTalentsTime = fields[20].GetUInt64();
 
-    delete result;
-
     // load spells/cooldowns/auras
     _LoadAuras(timediff);
 
@@ -346,6 +344,8 @@ bool Pet::LoadPetFromDB(Player* owner, uint32 petentry /*= 0*/, uint32 petnumber
     // failsafe check
     savedhealth = savedhealth > GetMaxHealth() ? GetMaxHealth() : savedhealth;
     savedpower = savedpower > GetMaxPower(powerType) ? GetMaxPower(powerType) : savedpower;
+
+    delete result;
 
     if (getPetType() == SUMMON_PET)
     {
@@ -360,10 +360,7 @@ bool Pet::LoadPetFromDB(Player* owner, uint32 petentry /*= 0*/, uint32 petnumber
             savedpower = 0;
         }
         else
-        {
-            delete result;
             return false;
-        }
     }
 
     SetHealth(savedhealth);

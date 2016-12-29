@@ -319,14 +319,15 @@ Spell::Spell(Unit* caster, SpellEntry const* info, uint32 triggeredFlags, Object
 
     m_needAliveTargetMask = 0;
 
-    m_ignoreHitResult = false;
+    m_ignoreHitResult = !!(triggeredFlags & TRIGGERED_IGNORE_HIT_CALCULATION);
     m_ignoreUnselectableTarget = m_IsTriggeredSpell;
+    m_ignoreCastTime = !!(triggeredFlags & TRIGGERED_INSTANT_CAST);
 
     m_reflectable = IsReflectableSpell(m_spellInfo);
 
     if (triggeredFlags & TRIGGERED_IGNORE_UNSELECTABLE_FLAG)
         m_ignoreUnselectableTarget = true;
-
+    
     CleanupTargetList();
 }
 
@@ -2910,7 +2911,9 @@ void Spell::Prepare()
     prepareDataForTriggerSystem();
 
     // calculate cast time (calculated after first CheckCast check to prevent charge counting for first CheckCast fail)
-    m_casttime = GetSpellCastTime(m_spellInfo, this);
+    if(!m_ignoreCastTime)
+        m_casttime = GetSpellCastTime(m_spellInfo, this);
+
     m_duration = CalculateSpellDuration(m_spellInfo, m_caster);
 
     // set timer base at cast time

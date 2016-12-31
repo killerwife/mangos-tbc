@@ -598,6 +598,12 @@ class MANGOS_DLL_SPEC ChatHandler
         bool HandleMmapTestArea(char* args);
         bool HandleMmapTestHeight(char* args);
 
+        bool HandleLinkAddCommand(char * args);
+        bool HandleLinkRemoveCommand(char * args);
+        bool HandleLinkEditCommand(char * args);
+        bool HandleLinkToggleCommand(char * args);
+        bool HandleLinkCheckCommand(char * args);
+
         //! Development Commands
         bool HandleSaveAllCommand(char* args);
 

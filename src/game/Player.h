@@ -1414,6 +1414,8 @@ class MANGOS_DLL_SPEC Player : public Unit
         void ClearComboPoints();
         void SendComboPoints() const;
 
+        bool AttackStop(bool targetSwitch = false, bool includingCast = false, bool includingCombo = false) override;
+
         void SendMailResult(uint32 mailId, MailResponseType mailAction, MailResponseResult mailError, uint32 equipError = 0, uint32 item_guid = 0, uint32 item_count = 0) const;
         void SendNewMail() const;
         void UpdateNextMailTimeAndUnreads();

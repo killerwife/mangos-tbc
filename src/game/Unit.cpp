@@ -3775,6 +3775,11 @@ void Unit::_UpdateAutoRepeatSpell()
         return;
     }
 
+    Unit* target = GetMap()->GetUnit(GetTargetGuid());
+
+    if (!target)
+        return;
+
     // apply delay
     if (m_AutoRepeatFirstCast && getAttackTimer(RANGED_ATTACK) < 500)
         setAttackTimer(RANGED_ATTACK, 500);
@@ -3783,16 +3788,18 @@ void Unit::_UpdateAutoRepeatSpell()
     // castroutine
     if (isAttackReady(RANGED_ATTACK))
     {
+        // we want to shoot
+        Spell* spell = new Spell(this, m_currentSpells[CURRENT_AUTOREPEAT_SPELL]->m_spellInfo, TRIGGERED_OLD_TRIGGERED);
+
+        SpellCastTargets targets;
+        targets.setUnitTarget(target);
+
         // Check if able to cast
-        if (m_currentSpells[CURRENT_AUTOREPEAT_SPELL]->CheckCast(true) != SPELL_CAST_OK)
+        if (spell->SpellStart(&targets) != SPELL_CAST_OK)
         {
             InterruptSpell(CURRENT_AUTOREPEAT_SPELL);
             return;
         }
-
-        // we want to shoot
-        Spell* spell = new Spell(this, m_currentSpells[CURRENT_AUTOREPEAT_SPELL]->m_spellInfo, true);
-        spell->SpellStart(&(m_currentSpells[CURRENT_AUTOREPEAT_SPELL]->m_targets));
 
         // all went good, reset attack
         resetAttackTimer(RANGED_ATTACK);

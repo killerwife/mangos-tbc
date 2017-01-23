@@ -1327,6 +1327,9 @@ bool DungeonMap::Add(Player* player)
     }
     else
     {
+        if (!player->CanEnterNewInstance(GetInstanceId()))
+            return false;
+
         Group* pGroup = player->GetGroup();
         if (pGroup)
         {
@@ -1405,6 +1408,8 @@ bool DungeonMap::Add(Player* player)
     m_unloadTimer = 0;
     m_resetAfterUnload = false;
     m_unloadWhenEmpty = false;
+
+    player->OnEnteringInstance(GetInstanceId());
 
     // this will acquire the same mutex so it cannot be in the previous block
     Map::Add(player);
@@ -1518,7 +1523,18 @@ void DungeonMap::SetResetSchedule(bool on)
     // the reset time is only scheduled when there are no payers inside
     // it is assumed that the reset time will rarely (if ever) change while the reset is scheduled
     if (!HavePlayers() && !IsRaidOrHeroicDungeon())
-        sMapPersistentStateMgr.GetScheduler().ScheduleReset(on, GetPersistanceState()->GetResetTime(), DungeonResetEvent(RESET_EVENT_NORMAL_DUNGEON, GetId(), GetInstanceId()));
+    {
+        time_t resetTime;
+        if (on)
+        {
+            resetTime = (uint64)(time(nullptr) + NORMAL_INSTANCE_RESET_TIME);
+            GetPersistanceState()->SetResetTime(resetTime);
+        }
+        else
+            resetTime = GetPersistanceState()->GetResetTime();
+
+        sMapPersistentStateMgr.GetScheduler().ScheduleReset(on, resetTime, DungeonResetEvent(RESET_EVENT_NORMAL_DUNGEON, GetId(), GetInstanceId()));
+    }
 }
 
 DungeonPersistentState* DungeonMap::GetPersistanceState() const

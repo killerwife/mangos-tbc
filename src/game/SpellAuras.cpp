@@ -280,7 +280,7 @@ pAuraHandler AuraHandler[TOTAL_AURAS] =
     &Aura::HandleUnused,                                    //222 unused
     &Aura::HandleNULL,                                      //223 Cold Stare
     &Aura::HandleUnused,                                    //224 unused
-    &Aura::HandleNoImmediateEffect,                         //225 SPELL_AURA_PRAYER_OF_MENDING
+    &Aura::HandlePrayerOfMending,                           //225 SPELL_AURA_PRAYER_OF_MENDING
     &Aura::HandleAuraPeriodicDummy,                         //226 SPELL_AURA_PERIODIC_DUMMY
     &Aura::HandlePeriodicTriggerSpellWithValue,             //227 SPELL_AURA_PERIODIC_TRIGGER_SPELL_WITH_VALUE
     &Aura::HandleNoImmediateEffect,                         //228 SPELL_AURA_DETECT_STEALTH
@@ -666,8 +666,10 @@ void AreaAura::Update(uint32 diff)
                     holder->SetInUse(false);
                 }
                 else
+                {
                     (*tIter)->AddSpellAuraHolder(holder);
-
+                    holder->SetState(SPELLAURAHOLDER_STATE_READY);
+                }
             }
         }
         Aura::Update(diff);
@@ -1979,6 +1981,13 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
                         GetHolder()->SetAuraDuration(urand(1, 30)*IN_MILLISECONDS);
                         return;
                     }
+                    case 32441:                             // Brittle Bones
+                    {
+                        m_isPeriodic = true;
+                        m_modifier.periodictime = 10 * IN_MILLISECONDS; // randomly applies Rattled 32437
+                        m_periodicTimer = 0;
+                        return;
+                    }
                     case 33326:                             // Stolen Soul Dispel
                     {
                         target->RemoveAurasDueToSpell(32346);
@@ -2372,6 +2381,16 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
 
                     return;
                 }
+                case 32096:                                 // Thrallmar's Favor
+                case 32098:                                 // Honor Hold's Favor
+                    if (target->GetTypeId() == TYPEID_PLAYER)
+                    {
+                        if (apply) // cast/remove Buffbot Buff Effect
+                            target->CastSpell(target, 32172, true);
+                        else
+                            target->RemoveAurasDueToSpell(32172);
+                    }
+                    return;
                 case 32216:                                 // Victorious
                     if (target->getClass() == CLASS_WARRIOR)
                         target->ModifyAuraState(AURA_STATE_WARRIOR_VICTORY_RUSH, apply);
@@ -3384,6 +3403,9 @@ void Aura::HandleModCharm(bool apply, bool Real)
     }
     else
         caster->ResetControlState();
+
+    if(GetId() == 30019)
+        target->SetTurningOff(apply);
 }
 
 void Aura::HandleModConfuse(bool apply, bool Real)
@@ -4195,6 +4217,9 @@ void Aura::HandlePeriodicTriggerSpell(bool apply, bool /*Real*/)
                 break;
         }
     }
+
+    if (GetId() == 30616) // Magtheridon - Blast Nova
+        target->SetTurningOff(apply);
 }
 
 void Aura::HandlePeriodicTriggerSpellWithValue(bool apply, bool /*Real*/)
@@ -4210,6 +4235,21 @@ void Aura::HandlePeriodicEnergize(bool apply, bool /*Real*/)
 void Aura::HandleAuraPowerBurn(bool apply, bool /*Real*/)
 {
     m_isPeriodic = apply;
+}
+
+void Aura::HandlePrayerOfMending(bool apply, bool /*Real*/)
+{
+    if (apply) // only on initial cast apply SP
+    {
+        if (const SpellEntry* entry = GetSpellProto())
+        {
+            if (GetHolder()->GetAuraCharges() == entry->procCharges)
+            {
+                DamageInfo damageInfo;
+                m_modifier.m_amount = GetCaster()->SpellHealingBonusDone(GetTarget(), GetSpellProto(), m_modifier.m_amount, HEAL, damageInfo);
+            }
+        }        
+    }
 }
 
 void Aura::HandleAuraPeriodicDummy(bool apply, bool Real)
@@ -4378,9 +4418,16 @@ void Aura::HandlePeriodicDamage(bool apply, bool Real)
     // remove time effects
     else
     {
-        // Parasitic Shadowfiend - handle summoning of two Shadowfiends on DoT expire
-        if (spellProto->Id == 41917)
-            target->CastSpell(target, 41915, TRIGGERED_OLD_TRIGGERED);
+        switch (spellProto->Id)
+        {
+            case 35201: // Paralytic Poison
+                if (m_removeMode == AURA_REMOVE_BY_DEFAULT)
+                    target->CastSpell(target, 35202, TRIGGERED_OLD_TRIGGERED); // Paralysis
+                break;
+            case 41917: // Parasitic Shadowfiend - handle summoning of two Shadowfiends on DoT expire
+                target->CastSpell(target, 41915, TRIGGERED_OLD_TRIGGERED);
+                break;
+        }         
     }
 }
 
@@ -5743,8 +5790,10 @@ void Aura::PeriodicTick()
             else
                 pdamage = uint32(target->GetMaxHealth() * amount / 100);
 
+            bool isNotBleed = GetEffectMechanic(spellProto, m_effIndex) != MECHANIC_BLEED;
+
             // SpellDamageBonus for magic spells
-            if (spellProto->DmgClass == SPELL_DAMAGE_CLASS_NONE || spellProto->DmgClass == SPELL_DAMAGE_CLASS_MAGIC)
+            if ((spellProto->DmgClass == SPELL_DAMAGE_CLASS_NONE && isNotBleed) || spellProto->DmgClass == SPELL_DAMAGE_CLASS_MAGIC)
                 pdamage = target->SpellDamageBonusTaken(pCaster, spellProto, pdamage, DOT, GetStackAmount());
             // MeleeDamagebonus for weapon based spells
             else
@@ -5755,8 +5804,7 @@ void Aura::PeriodicTick()
 
             // Calculate armor mitigation if it is a physical spell
             // But not for bleed mechanic spells
-            if (GetSpellSchoolMask(spellProto) & SPELL_SCHOOL_MASK_NORMAL &&
-                    GetEffectMechanic(spellProto, m_effIndex) != MECHANIC_BLEED)
+            if (GetSpellSchoolMask(spellProto) & SPELL_SCHOOL_MASK_NORMAL && isNotBleed)
             {
                 uint32 pdamageReductedArmor = pCaster->CalcArmorReducedDamage(target, pdamage);
                 cleanDamage.damage += pdamage - pdamageReductedArmor;
@@ -6214,7 +6262,7 @@ void Aura::PeriodicTick()
             // Anger Management
             // amount = 1+ 16 = 17 = 3,4*5 = 10,2*5/3
             // so 17 is rounded amount for 5 sec tick grow ~ 1 range grow in 3 sec
-            if (powerType == POWER_RAGE)
+            if (powerType == POWER_RAGE && target->isInCombat())
                 target->ModifyPower(powerType, m_modifier.m_amount * 3 / 5);
             break;
         }
@@ -6292,6 +6340,10 @@ void Aura::PeriodicDummyTick()
                     return;
                 }
 //              // Gossip NPC Periodic - Talk
+                case 32441:                                 // Brittle Bones
+                    if (roll_chance_i(33))
+                        target->CastSpell(target, 32437, true, nullptr, this);  // Rattled
+                    return;
 //              case 33208: break;
 //              // Gossip NPC Periodic - Despawn
 //              case 33209: break;

@@ -32,7 +32,7 @@ class MANGOS_DLL_SPEC HomeMovementGenerator<Creature>
 {
     public:
 
-        HomeMovementGenerator() : arrived(false) {}
+        HomeMovementGenerator(bool _runHome = true) : arrived(false), runHome(_runHome) {}
         ~HomeMovementGenerator() {}
 
         void Initialize(Creature&);
@@ -45,5 +45,6 @@ class MANGOS_DLL_SPEC HomeMovementGenerator<Creature>
     private:
         void _setTargetLocation(Creature&);
         bool arrived;
+        bool runHome;
 };
 #endif

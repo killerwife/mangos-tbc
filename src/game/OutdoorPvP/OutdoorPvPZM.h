@@ -128,6 +128,12 @@ static const ZangarmarshTowerEvent zangarmarshTowerEvents[MAX_ZM_TOWERS][4] =
 
 static const uint32 zangarmarshTowers[MAX_ZM_TOWERS] = {GO_ZANGA_BANNER_EAST, GO_ZANGA_BANNER_WEST};
 
+enum ConditionsZangarmarsh
+{
+    ALLIANCE_SCOUT_FLAG_READY   = 0,
+    HORDE_SCOUT_FLAG_READY      = 1,
+};
+
 class OutdoorPvPZM : public OutdoorPvP
 {
     public:
@@ -146,6 +152,9 @@ class OutdoorPvPZM : public OutdoorPvP
         void HandlePlayerKillInsideArea(Player* player) override;
         bool HandleGameObjectUse(Player* player, GameObject* go) override;
         //bool HandleDropFlag(Player* player, uint32 spellId) override;
+
+        virtual bool IsConditionFulfilled(uint32 conditionId) override;
+        virtual void HandleConditionStateChange(uint32 conditionId, uint32 state) override;
 
     private:
         // process capture events
@@ -168,6 +177,9 @@ class OutdoorPvPZM : public OutdoorPvP
         uint32 m_scoutWorldStateHorde;
         uint8 m_towersAlliance;
         uint8 m_towersHorde;
+
+        bool m_flagReady[2];
+        bool m_playerCarryingFlag[2];
 
         ObjectGuid m_towerBanners[MAX_ZM_TOWERS];
         ObjectGuid m_graveyardBannerAlliance;

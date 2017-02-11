@@ -4055,6 +4055,14 @@ void Aura::HandleAuraModEffectImmunity(bool apply, bool /*Real*/)
     }
 
     target->ApplySpellImmune(GetId(), IMMUNITY_EFFECT, m_modifier.m_miscvalue, apply);
+
+    switch (GetSpellProto()->Id)
+    {
+        case 32430: // Zangarmarsh Outdoor PVP - Battle Standard
+        case 32431: // Pick up flag and drop flag
+            if (OutdoorPvP* outdoorPvP = sOutdoorPvPMgr.GetScript(3521))
+                outdoorPvP->HandleConditionStateChange(GetSpellProto()->Id == 32431, uint32(apply));
+    }
 }
 
 void Aura::HandleAuraModStateImmunity(bool apply, bool Real)

@@ -44,6 +44,8 @@
 #include "GridNotifiersImpl.h"
 #include "CellImpl.h"
 #include "DBCStores.h"
+#include "OutdoorPvP/OutdoorPvPMgr.h"
+#include "OutdoorPvP/OutdoorPvP.h"
 
 #include "ItemEnchantmentMgr.h"
 #include "LootMgr.h"
@@ -7682,6 +7684,8 @@ bool PlayerCondition::Meets(Player const* player, Map const* map, WorldObject co
 
             return !!creature;
         }
+        case CONDITION_PVP_SCRIPT:
+            return sOutdoorPvPMgr.GetScript(m_value1)->IsConditionFulfilled(m_value2);
         default:
             return false;
     }
@@ -8119,6 +8123,16 @@ bool PlayerCondition::IsValid(uint16 entry, ConditionType condition, uint32 valu
                 sLog.outErrorDb("Creature in range condition (entry %u, type %u) has an invalid value in value2. (Range %u must be greater than 0), skipping.", entry, condition, value2);
                 return false;
             }
+            break;
+        }
+        case CONDITION_PVP_SCRIPT:
+        {
+            /*if (!sOutdoorPvPMgr.GetScript(value1))
+            {
+                sLog.outErrorDb("Pvp script not found (entry %u, type %u) for zoneId %u", entry, condition, value1);
+                return false;
+            }*/
+            break;
         }
         case CONDITION_NONE:
             break;

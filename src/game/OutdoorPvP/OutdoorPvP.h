@@ -89,6 +89,9 @@ class OutdoorPvP
         // Handle player kill
         void HandlePlayerKill(Player* killer, Player* victim);
 
+        virtual bool IsConditionFulfilled(uint32 conditionId) { return false; }
+        virtual void HandleConditionStateChange(uint32 conditionId, uint32 state) {}
+
     protected:
 
         // Player related stuff

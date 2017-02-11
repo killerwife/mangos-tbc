@@ -42,6 +42,12 @@ OutdoorPvPZM::OutdoorPvPZM() : OutdoorPvP(),
     for (uint8 i = 0; i < MAX_ZM_TOWERS; ++i)
         m_towerOwner[i] = TEAM_NONE;
 
+    for (uint8 i = 0; i < 2; ++i)
+    {
+        m_playerCarryingFlag[i] = false;
+        m_flagReady[i] = false;
+    }
+
     // initially set graveyard owner to neither faction
     sObjectMgr.SetGraveYardLinkTeam(GRAVEYARD_ID_TWIN_SPIRE, GRAVEYARD_ZONE_TWIN_SPIRE, TEAM_INVALID);
 }
@@ -276,6 +282,8 @@ void OutdoorPvPZM::UpdateScoutState(Team team, bool spawned)
         m_scoutWorldStateAlliance = spawned ? WORLD_STATE_ZM_FLAG_READY_ALLIANCE : WORLD_STATE_ZM_FLAG_NOT_READY_ALLIANCE;
         SendUpdateWorldState(m_scoutWorldStateAlliance, WORLD_STATE_ADD);
 
+        m_flagReady[0] = spawned;
+
         if (spawned)
             sWorld.SendDefenseMessage(ZONE_ID_ZANGARMARSH, LANG_OPVP_ZM_SPAWN_FIELD_SCOUT_A);
     }
@@ -284,6 +292,8 @@ void OutdoorPvPZM::UpdateScoutState(Team team, bool spawned)
         SendUpdateWorldState(m_scoutWorldStateHorde, WORLD_STATE_REMOVE);
         m_scoutWorldStateHorde = spawned ? WORLD_STATE_ZM_FLAG_READY_HORDE : WORLD_STATE_ZM_FLAG_NOT_READY_HORDE;
         SendUpdateWorldState(m_scoutWorldStateHorde, WORLD_STATE_ADD);
+
+        m_flagReady[1] = spawned;
 
         if (spawned)
             sWorld.SendDefenseMessage(ZONE_ID_ZANGARMARSH, LANG_OPVP_ZM_SPAWN_FIELD_SCOUT_H);
@@ -298,6 +308,8 @@ bool OutdoorPvPZM::HandleGameObjectUse(Player* player, GameObject* go)
     switch (go->GetEntry())
     {
         case GO_ZANGA_BANNER_CENTER_NEUTRAL:
+            if (!player->HasAura(SPELL_BATTLE_STANDARD_ALLIANCE) && !player->HasAura(SPELL_BATTLE_STANDARD_HORDE))
+                return false;
             break;
         case GO_ZANGA_BANNER_CENTER_ALLIANCE:
             if (team == ALLIANCE || !player->HasAura(SPELL_BATTLE_STANDARD_HORDE))
@@ -401,5 +413,37 @@ void OutdoorPvPZM::SetBeaconArtKit(const WorldObject* objRef, ObjectGuid creatur
             beam->CastSpell(beam, auraId, TRIGGERED_OLD_TRIGGERED);
         else
             beam->RemoveAllAuras();
+    }
+}
+
+bool OutdoorPvPZM::IsConditionFulfilled(uint32 conditionId)
+{
+    switch (conditionId)
+    {
+        case ALLIANCE_SCOUT_FLAG_READY:
+            return m_flagReady[0] && !m_playerCarryingFlag[0];
+        case HORDE_SCOUT_FLAG_READY:
+            return m_flagReady[1] && !m_playerCarryingFlag[1];
+    }
+
+    return false;
+}
+
+void OutdoorPvPZM::HandleConditionStateChange(uint32 conditionId, uint32 state)
+{
+    switch (conditionId)
+    {
+        case ALLIANCE_SCOUT_FLAG_READY:
+            if (state) // 0 - flag dropped, 1 - flag picked up
+                m_playerCarryingFlag[0] = true;
+            else
+                m_playerCarryingFlag[0] = false;
+            break;
+        case HORDE_SCOUT_FLAG_READY:
+            if (state)
+                m_playerCarryingFlag[1] = true;
+            else
+                m_playerCarryingFlag[1] = false;
+            break;
     }
 }

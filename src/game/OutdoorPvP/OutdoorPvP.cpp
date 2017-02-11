@@ -175,11 +175,15 @@ void OutdoorPvP::RespawnGO(const WorldObject* objRef, ObjectGuid goGuid, bool re
 {
     if (GameObject* go = objRef->GetMap()->GetGameObject(goGuid))
     {
-        go->SetRespawnTime(7 * DAY);
-
         if (respawn)
+        {
+            go->SetRespawnTime(0);
             go->Refresh();
+        }
         else if (go->isSpawned())
+        {
+            go->SetRespawnTime(7 * DAY);
             go->SetLootState(GO_JUST_DEACTIVATED);
+        }
     }
 }

@@ -731,6 +731,8 @@ UPDATE creature_template SET ScriptName='npc_protectorate_demolitionist' WHERE e
 UPDATE creature_template SET ScriptName='npc_captured_vanguard' WHERE entry=20763;
 UPDATE creature_template SET ScriptName='npc_drijya' WHERE entry=20281;
 UPDATE creature_template SET ScriptName='npc_dimensius' WHERE entry=19554;
+UPDATE creature_template SET ScriptName='npc_salhadaar' WHERE entry=20454;
+UPDATE creature_template SET ScriptName='npc_energy_ball' WHERE entry=20769; 
 
 /* ONYXIA'S LAIR */
 UPDATE instance_template SET ScriptName='instance_onyxias_lair' WHERE map=249;
@@ -2209,7 +2211,7 @@ INSERT INTO script_texts (entry,content_default,sound,type,language,emote,commen
 (-1001184,'REUSE ME',0,0,0,0,'REUSE_ME'),
 (-1001185,'REUSE ME',0,0,0,0,'REUSE_ME'),
 (-1001186,'REUSE ME',0,0,0,0,'REUSE_ME'),
-(-1001187,'REUSE ME',0,0,0,0,'REUSE_ME'),
+(-1001187,'Prepare to enter oblivion, meddlers. You have unleashed a god!',0,1,0,15,'Salhadaar SAY'),
 (-1001188,'REUSE ME',0,0,0,0,'REUSE_ME'),
 (-1001189,'REUSE ME',0,0,0,0,'REUSE_ME'),
 (-1001190,'REUSE ME',0,0,0,0,'REUSE_ME'),

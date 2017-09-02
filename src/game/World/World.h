@@ -26,6 +26,7 @@
 #include "Common.h"
 #include "Timer.h"
 #include "Globals/SharedDefines.h"
+#include "Entities/Object.h"
 
 #include <set>
 #include <list>
@@ -591,6 +592,8 @@ class World
         **/
         void InvalidatePlayerDataToAllClient(ObjectGuid guid) const;
 
+        static TimePoint GetCurrentClockTime() { return m_currentTime; }
+
     protected:
         void _UpdateGameTime();
         // callback for UpdateRealmCharacters
@@ -685,6 +688,8 @@ class World
 
         // List of Maps that should be force-loaded on startup
         std::set<uint32> m_configForceLoadMapIds;
+
+        static TimePoint m_currentTime;
 };
 
 extern uint32 realmID;

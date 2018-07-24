@@ -633,6 +633,11 @@ class ChatHandler
 
         bool HandlePetLevelLoyaltyCommand(char* args);
 
+        // Custom
+        bool HandleXPCommandSet(char* args);
+        bool HandleXPCommandCurrent(char* args);
+        bool HandleXPCommandAvailable(char* args);
+
         Player*   getSelectedPlayer() const;
         Unit*     getSelectedUnit(bool self = true) const;
         Creature* getSelectedCreature() const;

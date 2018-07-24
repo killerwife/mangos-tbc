@@ -744,6 +744,11 @@ enum PlayerRestState
     REST_STATE_RAF_LINKED       = 0x04                      // Exact use unknown
 };
 
+enum PlayerSettings
+{
+    PLAYER_SETTING_XP_MODIFIER = 1,
+};
+
 class PlayerTaxi
 {
     public:
@@ -2129,6 +2134,12 @@ class Player : public Unit
         void SetTitle(uint32 titleId, bool lost = false);
         void SetTitle(CharTitlesEntry const* title, bool lost = false);
 
+        // XP boost system
+        uint32 GetPlayerXPModifier() { return m_experienceModifier; }
+        void SetPlayerXPModifier(uint32 modifier) { m_experienceModifier = modifier; }
+        void _SaveXPModifier();
+        void SendXPRateToPlayer();
+
 #ifdef BUILD_PLAYERBOT
         // A Player can either have a playerbotMgr (to manage its bots), or have playerbotAI (if it is a bot), or
         // neither. Code that enables bots must create the playerbotMgr and set it using SetPlayerbotMgr.
@@ -2468,6 +2479,8 @@ class Player : public Unit
 
         std::unordered_map<uint32, TimePoint> m_enteredInstances;
         uint32 m_createdInstanceClearTimer;
+
+        uint32 m_experienceModifier; // XP Boost
 };
 
 void AddItemsSetItem(Player* player, Item* item);

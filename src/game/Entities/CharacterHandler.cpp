@@ -739,6 +739,8 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder* holder)
     if (!pCurrChar->IsStandState() && !pCurrChar->hasUnitState(UNIT_STAT_STUNNED))
         pCurrChar->SetStandState(UNIT_STAND_STATE_STAND);
 
+    pCurrChar->SendXPRateToPlayer();
+
     m_playerLoading = false;
     delete holder;
 }

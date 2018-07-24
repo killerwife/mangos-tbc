@@ -34,6 +34,7 @@
 #include <mutex>
 #include <functional>
 #include <vector>
+#include <array>
 
 class Object;
 class ObjectGuid;
@@ -416,6 +417,8 @@ enum RealmZone
     REALM_ZONE_CN5_8         = 37                           // basic-Latin at create, any at login
 };
 
+#define MAX_PLAYER_LEVEL 255
+
 /// Storage class for commands issued for delayed execution
 struct CliCommandHolder
 {
@@ -602,6 +605,10 @@ class World
         static TimePoint GetCurrentClockTime() { return m_currentTime; }
         static uint32 GetCurrentDiff() { return m_currentDiff; }
 
+        // Custom
+        uint32 GetExperienceCapForLevel(uint32 level, Team team);
+        void GetExperienceCapArray(Team team, std::array<uint32, MAX_PLAYER_LEVEL>& capArray);
+
     protected:
         void _UpdateGameTime();
         // callback for UpdateRealmCharacters
@@ -617,6 +624,8 @@ class World
         void ResetDailyQuests();
         void ResetWeeklyQuests();
         void ResetMonthlyQuests();
+
+        void LoadExperienceBrackets();
 
     private:
         void setConfig(eConfigUInt32Values index, char const* fieldname, uint32 defvalue);
@@ -708,6 +717,10 @@ class World
 
         static TimePoint m_currentTime;
         static uint32 m_currentDiff;
+
+        // Custom
+        // Map of counts of given group
+        std::array<std::array<uint32, MAX_PLAYER_LEVEL>, 2> m_experienceBrackets;
 };
 
 extern uint32 realmID;

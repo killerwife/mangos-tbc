@@ -518,6 +518,8 @@ Player::Player(WorldSession* session): Unit(), m_taxiTracker(*this), m_mover(thi
     m_lastFallZ = 0;
 
     m_createdInstanceClearTimer = MINUTE * IN_MILLISECONDS;
+
+    m_experienceModifier = 1;
 }
 
 Player::~Player()
@@ -2318,6 +2320,8 @@ void Player::GiveXP(uint32 xp, Unit* victim)
     if (level >= sWorld.getConfig(CONFIG_UINT32_MAX_PLAYER_LEVEL))
         return;
 
+    xp *= m_experienceModifier;
+
     // handle SPELL_AURA_MOD_XP_PCT auras
     Unit::AuraList const& ModXPPctAuras = GetAurasByType(SPELL_AURA_MOD_XP_PCT);
     for (Unit::AuraList::const_iterator i = ModXPPctAuras.begin(); i != ModXPPctAuras.end(); ++i)
@@ -2414,6 +2418,13 @@ void Player::GiveLevel(uint32 level)
 
     // resend quests status directly
     SendQuestGiverStatusMultiple();
+
+    uint32 cap = sWorld.GetExperienceCapForLevel(getLevel(), m_team);
+    if (cap < m_experienceModifier)
+    {
+        SetPlayerXPModifier(cap);
+        SendXPRateToPlayer();
+    }
 }
 
 void Player::UpdateFreeTalentPoints(bool resetIfNeed)
@@ -14929,6 +14940,25 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder* holder)
 
     _LoadCreatedInstanceTimers();
 
+    // voa only custom code
+    result = CharacterDatabase.PQuery("SELECT value FROM character_settings WHERE guid = %u AND id = %u", GetGUIDLow(), PLAYER_SETTING_XP_MODIFIER);
+    if (result)
+    {
+        Field* fields = result->Fetch();
+        m_experienceModifier = fields[0].GetUInt32();
+        uint32 cap = sWorld.GetExperienceCapForLevel(getLevel(), m_team);
+        if (m_experienceModifier > cap)
+        {
+            m_experienceModifier = cap;
+            CharacterDatabase.PExecute("UPDATE character_settings SET value = '%u' WHERE guid = '%u' AND id = '%u'", m_experienceModifier, GetGUIDLow(), PLAYER_SETTING_XP_MODIFIER);
+        }
+
+        delete result;
+    }
+    else
+        m_experienceModifier = 1;
+    // voa only custom code end
+
     return true;
 }
 
@@ -16161,6 +16191,10 @@ void Player::SaveToDB()
     m_reputationMgr.SaveToDB();
     GetSession()->SaveTutorialsData();                      // changed only while character in game
 
+    // voa only code
+    _SaveXPModifier();
+    // voa only code end
+
     CharacterDatabase.CommitTransaction();
 
     // check if stats should only be saved on logout
@@ -17361,6 +17395,33 @@ void Player::ResetSpellModsDueToCanceledSpell(Spell const* spell)
                 ++mod->charges;
         }
     }
+}
+
+void Player::_SaveXPModifier()
+{
+    QueryResult* result = CharacterDatabase.PQuery("SELECT value FROM character_settings WHERE guid = %u AND id = %u", GetGUIDLow(), PLAYER_SETTING_XP_MODIFIER);
+
+    if (result)
+    {
+        Field* fields = result->Fetch();
+        uint32 modifier = fields[0].GetUInt32();
+
+        if (modifier != m_experienceModifier)
+            CharacterDatabase.PExecute("UPDATE character_settings SET value = '%u' WHERE guid = '%u' AND id = '%u'", m_experienceModifier, GetGUIDLow(), PLAYER_SETTING_XP_MODIFIER);
+
+        delete result;
+    }
+    else
+        CharacterDatabase.PExecute("INSERT INTO character_settings(guid,id,value) VALUES('%u','%u','%u')", GetGUIDLow(), PLAYER_SETTING_XP_MODIFIER, m_experienceModifier);
+}
+
+void Player::SendXPRateToPlayer()
+{
+    std::string xpLine = "Current XP rate:" + std::to_string(m_experienceModifier) + "\n";
+    WorldPacket data;
+    ChatHandler::BuildChatPacket(data, CHAT_MSG_SYSTEM, xpLine.data(), LANG_UNIVERSAL, CHAT_TAG_NONE, GetObjectGuid());
+    if (WorldSession* session = GetSession())
+        session->SendPacket(data);
 }
 
 // send Proficiency
@@ -19688,7 +19749,7 @@ void Player::RewardSinglePlayerAtKill(Unit* pVictim)
         GiveXP(xp, pVictim);
 
         if (Pet* pet = GetPet())
-            pet->GivePetXP(xp);
+            pet->GivePetXP(xp * m_experienceModifier);
 
         // normal creature (not pet/etc) can be only in !PvP case
         if (pVictim->GetTypeId() == TYPEID_UNIT)
